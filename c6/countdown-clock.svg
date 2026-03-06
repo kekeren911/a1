@@ -1,0 +1,113 @@
+<svg width="600" height="600" viewBox="0 0 600 600" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- 渐变背景 -->
+    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1a1a2e;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#16213e;stop-opacity:1" />
+    </linearGradient>
+
+    <!-- 发光效果 -->
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <!-- 数字渐变 -->
+    <linearGradient id="digitGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#00d9ff;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#00ff88;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#00d9ff;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+
+  <!-- 背景 -->
+  <rect width="600" height="600" fill="url(#bgGradient)" rx="20" ry="20"/>
+
+  <!-- 外圈装饰 -->
+  <circle cx="300" cy="300" r="280" fill="none" stroke="#00d9ff" stroke-width="2" opacity="0.3">
+    <animate attributeName="r" values="280;285;280" dur="3s" repeatCount="indefinite"/>
+  </circle>
+
+  <circle cx="300" cy="300" r="260" fill="none" stroke="#00ff88" stroke-width="1" opacity="0.2">
+    <animate attributeName="r" values="260;255;260" dur="4s" repeatCount="indefinite"/>
+  </circle>
+
+  <!-- 秒针圆环进度条 -->
+  <circle cx="300" cy="300" r="220" fill="none" stroke="#2a2a4e" stroke-width="12"/>
+  <circle cx="300" cy="300" r="220" fill="none" stroke="url(#digitGradient)" stroke-width="12"
+          stroke-linecap="round" stroke-dasharray="1382" stroke-dashoffset="0"
+          transform="rotate(-90 300 300)">
+    <animate attributeName="stroke-dashoffset" values="0;1382;0" dur="60s" repeatCount="indefinite"/>
+  </circle>
+
+  <!-- 分钟圆环进度条 -->
+  <circle cx="300" cy="300" r="180" fill="none" stroke="#2a2a4e" stroke-width="10"/>
+  <circle cx="300" cy="300" r="180" fill="none" stroke="#ff6b6b" stroke-width="10"
+          stroke-linecap="round" stroke-dasharray="1131" stroke-dashoffset="0"
+          transform="rotate(-90 300 300)">
+    <animate attributeName="stroke-dashoffset" values="0;1131;0" dur="3600s" repeatCount="indefinite"/>
+  </circle>
+
+  <!-- 小时圆环进度条 -->
+  <circle cx="300" cy="300" r="140" fill="none" stroke="#2a2a4e" stroke-width="8"/>
+  <circle cx="300" cy="300" r="140" fill="none" stroke="#ffd93d" stroke-width="8"
+          stroke-linecap="round" stroke-dasharray="880" stroke-dashoffset="0"
+          transform="rotate(-90 300 300)">
+    <animate attributeName="stroke-dashoffset" values="0;880;0" dur="86400s" repeatCount="indefinite"/>
+  </circle>
+
+  <!-- 时间数字显示 -->
+  <g font-family="Arial, sans-serif" font-weight="bold" text-anchor="middle">
+    <!-- 小时 -->
+    <text x="300" y="300" font-size="72" fill="url(#digitGradient)" filter="url(#glow)">
+      <tspan id="hours">23</tspan>
+    </text>
+
+    <!-- 分隔符 -->
+    <text x="300" y="385" font-size="48" fill="#ffffff" opacity="0.6">
+      <tspan>:</tspan>
+    </text>
+
+    <!-- 分钟 -->
+    <text x="300" y="460" font-size="72" fill="url(#digitGradient)" filter="url(#glow)">
+      <tspan id="minutes">59</tspan>
+    </text>
+
+    <!-- 分隔符 -->
+    <text x="300" y="545" font-size="48" fill="#ffffff" opacity="0.6">
+      <tspan>:</tspan>
+    </text>
+
+    <!-- 秒 -->
+    <text x="300" y="620" font-size="72" fill="url(#digitGradient)" filter="url(#glow)">
+      <tspan id="seconds">59</tspan>
+    </text>
+  </g>
+
+  <!-- 装饰点 -->
+  <circle cx="300" cy="80" r="4" fill="#00d9ff" opacity="0.8">
+    <animate attributeName="opacity" values="0.8;0.3;0.8" dur="1s" repeatCount="indefinite"/>
+  </circle>
+  <circle cx="300" cy="520" r="4" fill="#00d9ff" opacity="0.8">
+    <animate attributeName="opacity" values="0.3;0.8;0.3" dur="1s" repeatCount="indefinite"/>
+  </circle>
+
+  <!-- 动态粒子效果 -->
+  <circle cx="100" cy="300" r="2" fill="#00ff88">
+    <animate attributeName="cy" values="300;200;300;400;300" dur="8s" repeatCount="indefinite"/>
+    <animate attributeName="opacity" values="0.6;0;0.6;0;0.6" dur="8s" repeatCount="indefinite"/>
+  </circle>
+  <circle cx="500" cy="300" r="2" fill="#ff6b6b">
+    <animate attributeName="cy" values="300;400;300;200;300" dur="6s" repeatCount="indefinite"/>
+    <animate attributeName="opacity" values="0.6;0;0.6;0;0.6" dur="6s" repeatCount="indefinite"/>
+  </circle>
+
+  <!-- 标签 -->
+  <text x="85" y="305" font-family="Arial, sans-serif" font-size="14" fill="#ffd93d" text-anchor="end">时</text>
+  <text x="85" y="465" font-family="Arial, sans-serif" font-size="14" fill="#ff6b6b" text-anchor="end">分</text>
+  <text x="85" y="625" font-family="Arial, sans-serif" font-size="14" fill="#00d9ff" text-anchor="end">秒</text>
+
+</svg>
