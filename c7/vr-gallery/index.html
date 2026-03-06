@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>沉浸式VR展厅</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="loading">
+        <div class="loader"></div>
+        <p>加载中...</p>
+    </div>
+
+    <div id="info-panel">
+        <div id="artwork-info">
+            <h2 id="artwork-title"></h2>
+            <p id="artwork-description"></p>
+            <p id="artwork-artist"></p>
+        </div>
+        <button id="close-info">关闭</button>
+    </div>
+
+    <div id="controls">
+        <button id="vr-button" class="control-btn">进入VR模式</button>
+        <button id="reset-camera" class="control-btn">重置视角</button>
+        <button id="toggle-info" class="control-btn">显示信息</button>
+    </div>
+
+    <div id="instructions">
+        <p>🖱️ 拖动鼠标旋转视角</p>
+        <p>🎯 点击画作查看详情</p>
+        <p>⌨️ WASD/方向键 移动</p>
+        <p>🎮 支持VR设备沉浸式体验</p>
+    </div>
+
+    <script type="module" src="main.js"></script>
+</body>
+</html>
