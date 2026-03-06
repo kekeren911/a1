@@ -1,0 +1,847 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>磁流体物理模拟 | Ferrofluid Simulation</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            width: 100vw;
+            height: 100vh;
+            background: #000;
+            overflow: hidden;
+            font-family: 'Arial', sans-serif;
+            cursor: crosshair;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        #ui-overlay {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 14px;
+            pointer-events: none;
+            z-index: 100;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+        }
+
+        #ui-overlay h1 {
+            font-size: 24px;
+            margin-bottom: 10px;
+            color: #00d4ff;
+            font-weight: 300;
+            letter-spacing: 2px;
+        }
+
+        #ui-overlay p {
+            margin: 5px 0;
+            line-height: 1.6;
+        }
+
+        #ui-overlay .key {
+            display: inline-block;
+            background: rgba(0, 212, 255, 0.2);
+            padding: 2px 8px;
+            border-radius: 4px;
+            margin: 0 4px;
+            font-size: 12px;
+        }
+
+        #stats {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 12px;
+            text-align: right;
+            pointer-events: none;
+            z-index: 100;
+        }
+
+        #loading {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #00d4ff;
+            font-size: 18px;
+            text-align: center;
+            z-index: 200;
+        }
+
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid rgba(0, 212, 255, 0.3);
+            border-top-color: #00d4ff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        @media (max-width: 768px) {
+            #ui-overlay {
+                font-size: 12px;
+                top: 10px;
+                left: 10px;
+            }
+
+            #ui-overlay h1 {
+                font-size: 18px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+
+    <div id="ui-overlay">
+        <h1>磁流体模拟</h1>
+        <p><span class="key">鼠标移动</span> 控制磁场</p>
+        <p><span class="key">点击</span> 增强磁场</p>
+        <p><span class="key">滚轮</span> 调节尖刺强度</p>
+    </div>
+
+    <div id="stats">
+        <div id="fps">FPS: 60</div>
+        <div id="particles">粒子: 2500</div>
+    </div>
+
+    <div id="loading">
+        <div class="loading-spinner"></div>
+        <div>初始化中...</div>
+    </div>
+
+    <script>
+    // ============================================================
+    // CONFIGURATION
+    // ============================================================
+    const CONFIG = {
+        // 粒子设置
+        particleCount: 2500,
+        particleBaseSize: 2.0,
+
+        // 磁力设置
+        magneticStrength: 1500,
+        magneticRadius: 400,
+        damping: 0.98,
+
+        // 尖刺形成
+        spikeIntensity: 30,
+        spikeNoiseScale: 0.01,
+
+        // 视觉效果
+        baseColor: [0.102, 0.102, 0.180],    // #1a1a2e
+        highlightColor: [0.0, 0.831, 1.0],    // #00d4ff
+        glowIntensity: 0.8,
+        metalness: 0.9,
+        roughness: 0.3,
+
+        // 渲染设置
+        antialias: true,
+        pixelRatio: Math.min(window.devicePixelRatio, 2),
+    };
+
+    // ============================================================
+    // UTILITIES
+    // ============================================================
+    class SimplexNoise {
+        constructor(seed = Math.random()) {
+            this.p = new Uint8Array(256);
+            this.perm = new Uint8Array(512);
+            this.permMod12 = new Uint8Array(512);
+
+            for (let i = 0; i < 256; i++) {
+                this.p[i] = i;
+            }
+
+            // Shuffle based on seed
+            let n = seed * 2147483647;
+            for (let i = 255; i > 0; i--) {
+                n = ((n * 16807) % 2147483647);
+                const j = n % (i + 1);
+                [this.p[i], this.p[j]] = [this.p[j], this.p[i]];
+            }
+
+            for (let i = 0; i < 512; i++) {
+                this.perm[i] = this.p[i & 255];
+                this.permMod12[i] = this.perm[i] % 12;
+            }
+        }
+
+        noise2D(x, y) {
+            const F2 = 0.5 * (Math.sqrt(3) - 1);
+            const G2 = (3 - Math.sqrt(3)) / 6;
+
+            const grad3 = [
+                [1, 1, 0], [-1, 1, 0], [1, -1, 0], [-1, -1, 0],
+                [1, 0, 1], [-1, 0, 1], [1, 0, -1], [-1, 0, -1],
+                [0, 1, 1], [0, -1, 1], [0, 1, -1], [0, -1, -1]
+            ];
+
+            let n0, n1, n2;
+            const s = (x + y) * F2;
+            const i = Math.floor(x + s);
+            const j = Math.floor(y + s);
+            const t = (i + j) * G2;
+            const X0 = i - t;
+            const Y0 = j - t;
+            const x0 = x - X0;
+            const y0 = y - Y0;
+
+            let i1, j1;
+            if (x0 > y0) { i1 = 1; j1 = 0; }
+            else { i1 = 0; j1 = 1; }
+
+            const x1 = x0 - i1 + G2;
+            const y1 = y0 - j1 + G2;
+            const x2 = x0 - 1 + 2 * G2;
+            const y2 = y0 - 1 + 2 * G2;
+
+            const ii = i & 255;
+            const jj = j & 255;
+            const gi0 = this.permMod12[ii + this.perm[jj]];
+            const gi1 = this.permMod12[ii + i1 + this.perm[jj + j1]];
+            const gi2 = this.permMod12[ii + 1 + this.perm[jj + 1]];
+
+            let t0 = 0.5 - x0 * x0 - y0 * y0;
+            if (t0 < 0) n0 = 0;
+            else {
+                t0 *= t0;
+                n0 = t0 * t0 * (grad3[gi0][0] * x0 + grad3[gi0][1] * y0);
+            }
+
+            let t1 = 0.5 - x1 * x1 - y1 * y1;
+            if (t1 < 0) n1 = 0;
+            else {
+                t1 *= t1;
+                n1 = t1 * t1 * (grad3[gi1][0] * x1 + grad3[gi1][1] * y1);
+            }
+
+            let t2 = 0.5 - x2 * x2 - y2 * y2;
+            if (t2 < 0) n2 = 0;
+            else {
+                t2 *= t2;
+                n2 = t2 * t2 * (grad3[gi2][0] * x2 + grad3[gi2][1] * y2);
+            }
+
+            return 70 * (n0 + n1 + n2);
+        }
+    }
+
+    // ============================================================
+    // INPUT HANDLER
+    // ============================================================
+    class InputHandler {
+        constructor(canvas) {
+            this.canvas = canvas;
+            this.mouseX = 0;
+            this.mouseY = 0;
+            this.mouseVelX = 0;
+            this.mouseVelY = 0;
+            this.mousePrevX = 0;
+            this.mousePrevY = 0;
+            this.isMouseDown = false;
+            this.spikeStrength = 0.5;
+
+            this.setupEventListeners();
+        }
+
+        setupEventListeners() {
+            // Mouse events
+            this.canvas.addEventListener('mousemove', (e) => this.onMouseMove(e));
+            this.canvas.addEventListener('mousedown', (e) => this.onMouseDown(e));
+            this.canvas.addEventListener('mouseup', () => this.onMouseUp());
+            this.canvas.addEventListener('mouseleave', () => this.onMouseUp());
+
+            // Touch events
+            this.canvas.addEventListener('touchmove', (e) => this.onTouchMove(e), { passive: false });
+            this.canvas.addEventListener('touchstart', (e) => this.onTouchStart(e), { passive: false });
+            this.canvas.addEventListener('touchend', () => this.onMouseUp());
+
+            // Wheel event for spike adjustment
+            this.canvas.addEventListener('wheel', (e) => this.onWheel(e), { passive: false });
+
+            // Resize event
+            window.addEventListener('resize', () => this.onResize());
+        }
+
+        onMouseMove(e) {
+            this.mousePrevX = this.mouseX;
+            this.mousePrevY = this.mouseY;
+            this.mouseX = e.clientX;
+            this.mouseY = e.clientY;
+            this.updateMouseVelocity();
+        }
+
+        onMouseDown(e) {
+            this.isMouseDown = true;
+        }
+
+        onMouseUp() {
+            this.isMouseDown = false;
+        }
+
+        onTouchMove(e) {
+            e.preventDefault();
+            const touch = e.touches[0];
+            this.mousePrevX = this.mouseX;
+            this.mousePrevY = this.mouseY;
+            this.mouseX = touch.clientX;
+            this.mouseY = touch.clientY;
+            this.updateMouseVelocity();
+        }
+
+        onTouchStart(e) {
+            e.preventDefault();
+            this.isMouseDown = true;
+            const touch = e.touches[0];
+            this.mouseX = touch.clientX;
+            this.mouseY = touch.clientY;
+            this.mousePrevX = this.mouseX;
+            this.mousePrevY = this.mouseY;
+        }
+
+        onWheel(e) {
+            e.preventDefault();
+            this.spikeStrength = Math.max(0, Math.min(1, this.spikeStrength + e.deltaY * -0.001));
+        }
+
+        onResize() {
+            // Resize is handled by the main Ferrofluid class
+        }
+
+        updateMouseVelocity() {
+            this.mouseVelX = this.mouseX - this.mousePrevX;
+            this.mouseVelY = this.mouseY - this.mousePrevY;
+        }
+
+        getMouseSpeed() {
+            return Math.sqrt(this.mouseVelX * this.mouseVelX + this.mouseVelY * this.mouseVelY);
+        }
+    }
+
+    // ============================================================
+    // PARTICLE SYSTEM
+    // ============================================================
+    class ParticleSystem {
+        constructor(count) {
+            this.count = count;
+            this.positions = new Float32Array(count * 2);
+            this.velocities = new Float32Array(count * 2);
+            this.originalPositions = new Float32Array(count * 2);
+            this.initialize();
+        }
+
+        initialize() {
+            const centerX = 0.5;
+            const centerY = 0.5;
+            const radius = 0.15;
+
+            for (let i = 0; i < this.count; i++) {
+                const angle = (i / this.count) * Math.PI * 2;
+                const r = Math.sqrt(Math.random()) * radius;
+                const x = centerX + Math.cos(angle) * r;
+                const y = centerY + Math.sin(angle) * r;
+
+                this.positions[i * 2] = x;
+                this.positions[i * 2 + 1] = y;
+                this.velocities[i * 2] = 0;
+                this.velocities[i * 2 + 1] = 0;
+                this.originalPositions[i * 2] = x;
+                this.originalPositions[i * 2 + 1] = y;
+            }
+        }
+
+        setPositions(positions) {
+            this.positions.set(positions);
+        }
+    }
+
+    // ============================================================
+    // PHYSICS ENGINE
+    // ============================================================
+    class PhysicsEngine {
+        constructor(config) {
+            this.config = config;
+            this.noise = new SimplexNoise(42);
+        }
+
+        update(particleSystem, mouseX, mouseY, mouseVelX, mouseVelY, isMouseDown, deltaTime, time) {
+            const positions = particleSystem.positions;
+            const velocities = particleSystem.velocities;
+            const originalPositions = particleSystem.originalPositions;
+            const count = particleSystem.count;
+
+            const magneticStrength = this.config.magneticStrength * (isMouseDown ? 2.5 : 1.0);
+            const magneticRadius = this.config.magneticRadius;
+            const damping = this.config.damping;
+            const spikeIntensity = this.config.spikeIntensity * (1 + isMouseDown ? 0.5 : 0);
+
+            // Convert mouse to normalized coordinates
+            const normMouseX = mouseX / window.innerWidth;
+            const normMouseY = 1.0 - (mouseY / window.innerHeight);
+
+            for (let i = 0; i < count; i++) {
+                const idx = i * 2;
+                let px = positions[idx];
+                let py = positions[idx + 1];
+                let vx = velocities[idx];
+                let vy = velocities[idx + 1];
+
+                // Calculate distance to mouse
+                const dx = normMouseX - px;
+                const dy = normMouseY - py;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+
+                // Magnetic force (attraction to mouse)
+                let fx = 0;
+                let fy = 0;
+
+                if (dist > 0 && dist < magneticRadius / 1000) {
+                    const falloff = 1 - (dist / (magneticRadius / 1000));
+                    const strength = magneticStrength * falloff * falloff;
+                    fx = (dx / dist) * strength;
+                    fy = (dy / dist) * strength;
+                }
+
+                // Mouse velocity influence
+                fx += mouseVelX * 0.01;
+                fy += -mouseVelY * 0.01;
+
+                // Spike formation using noise
+                const angle = Math.atan2(dy, dx);
+                const noiseX = px * this.config.spikeNoiseScale;
+                const noiseY = py * this.config.spikeNoiseScale;
+                const noiseVal = this.noise.noise2D(noiseX + time * 0.5, noiseY + time * 0.3);
+
+                const perpX = -Math.sin(angle);
+                const perpY = Math.cos(angle);
+                const spikeForce = noiseVal * spikeIntensity * falloff;
+
+                fx += perpX * spikeForce;
+                fy += perpY * spikeForce;
+
+                // Return to original position (weak spring force)
+                const ox = originalPositions[idx];
+                const oy = originalPositions[idx + 1];
+                fx += (ox - px) * 0.5;
+                fy += (oy - py) * 0.5;
+
+                // Apply forces
+                vx += fx * deltaTime;
+                vy += fy * deltaTime;
+
+                // Damping
+                vx *= damping;
+                vy *= damping;
+
+                // Update position
+                px += vx * deltaTime;
+                py += vy * deltaTime;
+
+                // Clamp to screen bounds
+                px = Math.max(0.05, Math.min(0.95, px));
+                py = Math.max(0.05, Math.min(0.95, py));
+
+                positions[idx] = px;
+                positions[idx + 1] = py;
+                velocities[idx] = vx;
+                velocities[idx + 1] = vy;
+            }
+        }
+    }
+
+    // ============================================================
+    // WEBGL RENDERER
+    // ============================================================
+    class WebGLRenderer {
+        constructor(canvas, config) {
+            this.canvas = canvas;
+            this.config = config;
+            this.gl = null;
+            this.program = null;
+            this.particleBuffer = null;
+            this.attribLocations = {};
+            this.uniformLocations = {};
+
+            this.initialize();
+        }
+
+        initialize() {
+            // Get WebGL context
+            this.gl = this.canvas.getContext('webgl', {
+                antialias: this.config.antialias,
+                alpha: false,
+                preserveDrawingBuffer: false
+            });
+
+            if (!this.gl) {
+                throw new Error('WebGL not supported');
+            }
+
+            this.compileShaders();
+            this.createBuffers();
+        }
+
+        compileShaders() {
+            const gl = this.gl;
+
+            // Vertex shader
+            const vsSource = `
+                attribute vec2 a_position;
+                varying vec2 v_uv;
+                varying vec2 v_position;
+
+                void main() {
+                    v_uv = a_position;
+                    v_position = a_position;
+                    gl_Position = vec4(a_position * 2.0 - 1.0, 0.0, 1.0);
+                }
+            `;
+
+            // Fragment shader with metaball effect
+            const fsSource = `
+                precision highp float;
+
+                varying vec2 v_uv;
+                varying vec2 v_position;
+
+                uniform vec2 u_particles[2500];
+                uniform int u_particleCount;
+                uniform vec2 u_mousePos;
+                uniform float u_time;
+                uniform vec3 u_baseColor;
+                uniform vec3 u_highlightColor;
+                uniform float u_glowIntensity;
+
+                // Simplex noise function
+                vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
+                vec2 mod289(vec2 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
+                vec3 permute(vec3 x) { return mod289(((x*34.0)+1.0)*x); }
+
+                float snoise(vec2 v) {
+                    const vec4 C = vec4(0.211324865405187, 0.366025403784439,
+                                       -0.577350269189626, 0.024390243902439);
+                    vec2 i  = floor(v + dot(v, C.yy) );
+                    vec2 x0 = v -   i + dot(i, C.xx);
+                    vec2 i1;
+                    i1 = (x0.x > x0.y) ? vec2(1.0, 0.0) : vec2(0.0, 1.0);
+                    vec4 x12 = x0.xyxy + C.xxzz;
+                    x12.xy -= i1;
+                    i = mod289(i);
+                    vec3 p = permute( permute( i.y + vec3(0.0, i1.y, 1.0 ))
+                        + i.x + vec3(0.0, i1.x, 1.0 ));
+                    vec3 m = max(0.5 - vec3(dot(x0,x0), dot(x12.xy,x12.xy),
+                        dot(x12.zw,x12.zw)), 0.0);
+                    m = m*m ;
+                    m = m*m ;
+                    vec3 x = 2.0 * fract(p * C.www) - 1.0;
+                    vec3 h = abs(x) - 0.5;
+                    vec3 ox = floor(x + 0.5);
+                    vec3 a0 = x - ox;
+                    m *= 1.79284291400159 - 0.85373472095314 * ( a0*a0 + h*h );
+                    vec3 g;
+                    g.x  = a0.x  * x0.x  + h.x  * x0.y;
+                    g.yz = a0.yz * x12.xz + h.yz * x12.yw;
+                    return 130.0 * dot(m, g);
+                }
+
+                float field(vec2 p) {
+                    float sum = 0.0;
+                    float maxDist = 0.15;
+
+                    for(int i = 0; i < 2500; i++) {
+                        if(i >= u_particleCount) break;
+
+                        vec2 diff = p - u_particles[i];
+                        float dist = length(diff);
+
+                        if(dist < maxDist) {
+                            float weight = 1.0 / (dist * 5.0 + 0.01);
+                            sum += weight;
+                        }
+                    }
+                    return sum;
+                }
+
+                void main() {
+                    vec2 p = v_uv;
+                    float f = field(p);
+
+                    // Calculate distance to mouse for glow effect
+                    float mouseDist = length(p - u_mousePos);
+                    float mouseGlow = exp(-mouseDist * 3.0) * u_glowIntensity;
+
+                    // Threshold with smooth transition
+                    float threshold = 3.0;
+                    float smoothWidth = 0.5;
+                    float alpha = smoothstep(threshold - smoothWidth, threshold + smoothWidth, f);
+
+                    // Noise for texture
+                    float noise = snoise(p * 20.0 + u_time * 0.1) * 0.1;
+
+                    // Base color with noise
+                    vec3 color = u_baseColor + noise;
+
+                    // Highlight based on mouse proximity
+                    float highlight = exp(-mouseDist * 5.0);
+                    color = mix(color, u_highlightColor, highlight * 0.5);
+
+                    // Fresnel rim light
+                    float fieldGrad = length(vec2(
+                        field(p + vec2(0.001, 0.0)) - field(p - vec2(0.001, 0.0)),
+                        field(p + vec2(0.0, 0.001)) - field(p - vec2(0.0, 0.001))
+                    ));
+                    float fresnel = 1.0 - alpha;
+                    float rim = pow(fresnel, 3.0) * fieldGrad * 2.0;
+                    color += u_highlightColor * rim;
+
+                    // Add mouse glow
+                    color += u_highlightColor * mouseGlow * 0.3;
+
+                    // Shadow areas
+                    float shadow = smoothstep(threshold, threshold - 1.0, f);
+                    color = mix(color * 0.3, color, 1.0 - shadow * 0.5);
+
+                    gl_FragColor = vec4(color, alpha);
+                }
+            `;
+
+            // Compile vertex shader
+            const vertexShader = gl.createShader(gl.VERTEX_SHADER);
+            gl.shaderSource(vertexShader, vsSource);
+            gl.compileShader(vertexShader);
+
+            if (!gl.getShaderParameter(vertexShader, gl.COMPILE_STATUS)) {
+                console.error('Vertex shader error:', gl.getShaderInfoLog(vertexShader));
+                gl.deleteShader(vertexShader);
+                return;
+            }
+
+            // Compile fragment shader
+            const fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
+            gl.shaderSource(fragmentShader, fsSource);
+            gl.compileShader(fragmentShader);
+
+            if (!gl.getShaderParameter(fragmentShader, gl.COMPILE_STATUS)) {
+                console.error('Fragment shader error:', gl.getShaderInfoLog(fragmentShader));
+                gl.deleteShader(fragmentShader);
+                return;
+            }
+
+            // Create program
+            this.program = gl.createProgram();
+            gl.attachShader(this.program, vertexShader);
+            gl.attachShader(this.program, fragmentShader);
+            gl.linkProgram(this.program);
+
+            if (!gl.getProgramParameter(this.program, gl.LINK_STATUS)) {
+                console.error('Program link error:', gl.getProgramInfoLog(this.program));
+                return;
+            }
+
+            // Get attribute and uniform locations
+            this.attribLocations.position = gl.getAttribLocation(this.program, 'a_position');
+            this.uniformLocations.particles = gl.getUniformLocation(this.program, 'u_particles');
+            this.uniformLocations.particleCount = gl.getUniformLocation(this.program, 'u_particleCount');
+            this.uniformLocations.mousePos = gl.getUniformLocation(this.program, 'u_mousePos');
+            this.uniformLocations.time = gl.getUniformLocation(this.program, 'u_time');
+            this.uniformLocations.baseColor = gl.getUniformLocation(this.program, 'u_baseColor');
+            this.uniformLocations.highlightColor = gl.getUniformLocation(this.program, 'u_highlightColor');
+            this.uniformLocations.glowIntensity = gl.getUniformLocation(this.program, 'u_glowIntensity');
+
+            // Clean up
+            gl.deleteShader(vertexShader);
+            gl.deleteShader(fragmentShader);
+        }
+
+        createBuffers() {
+            const gl = this.gl;
+
+            // Create fullscreen quad
+            const quadVertices = new Float32Array([
+                0.0, 0.0,
+                1.0, 0.0,
+                0.0, 1.0,
+                1.0, 1.0
+            ]);
+
+            this.quadBuffer = gl.createBuffer();
+            gl.bindBuffer(gl.ARRAY_BUFFER, this.quadBuffer);
+            gl.bufferData(gl.ARRAY_BUFFER, quadVertices, gl.STATIC_DRAW);
+        }
+
+        resize(width, height) {
+            this.canvas.width = width * this.config.pixelRatio;
+            this.canvas.height = height * this.config.pixelRatio;
+            this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
+        }
+
+        render(particleSystem, mouseX, mouseY, time) {
+            const gl = this.gl;
+
+            // Clear
+            gl.clearColor(0.0, 0.0, 0.0, 1.0);
+            gl.clear(gl.COLOR_BUFFER_BIT);
+
+            // Enable blending for smooth edges
+            gl.enable(gl.BLEND);
+            gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+
+            // Use program
+            gl.useProgram(this.program);
+
+            // Set up quad
+            gl.bindBuffer(gl.ARRAY_BUFFER, this.quadBuffer);
+            gl.enableVertexAttribArray(this.attribLocations.position);
+            gl.vertexAttribPointer(this.attribLocations.position, 2, gl.FLOAT, false, 0, 0);
+
+            // Normalize mouse position
+            const normMouseX = mouseX / window.innerWidth;
+            const normMouseY = 1.0 - (mouseY / window.innerHeight);
+
+            // Set uniforms
+            gl.uniform2fv(this.uniformLocations.particles, particleSystem.positions);
+            gl.uniform1i(this.uniformLocations.particleCount, particleSystem.count);
+            gl.uniform2f(this.uniformLocations.mousePos, normMouseX, normMouseY);
+            gl.uniform1f(this.uniformLocations.time, time);
+            gl.uniform3fv(this.uniformLocations.baseColor, this.config.baseColor);
+            gl.uniform3fv(this.uniformLocations.highlightColor, this.config.highlightColor);
+            gl.uniform1f(this.uniformLocations.glowIntensity, this.config.glowIntensity);
+
+            // Draw
+            gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+        }
+    }
+
+    // ============================================================
+    // MAIN FERROFLUID CLASS
+    // ============================================================
+    class Ferrofluid {
+        constructor() {
+            this.canvas = document.getElementById('canvas');
+            this.canvas.style.width = '100vw';
+            this.canvas.style.height = '100vh';
+
+            this.config = CONFIG;
+            this.input = new InputHandler(this.canvas);
+            this.particleSystem = new ParticleSystem(this.config.particleCount);
+            this.physics = new PhysicsEngine(this.config);
+            this.renderer = new WebGLRenderer(this.canvas, this.config);
+
+            this.time = 0;
+            this.lastTime = 0;
+            this.frameCount = 0;
+            this.fpsUpdateTime = 0;
+            this.currentFPS = 60;
+
+            // Adjust for mobile
+            if (window.innerWidth < 768) {
+                this.config.particleCount = 1500;
+                this.particleSystem = new ParticleSystem(this.config.particleCount);
+                document.getElementById('particles').textContent = '粒子: 1500';
+            }
+
+            this.setupResize();
+            this.hideLoading();
+            this.start();
+        }
+
+        setupResize() {
+            const resize = () => {
+                const width = window.innerWidth;
+                const height = window.innerHeight;
+                this.renderer.resize(width, height);
+            };
+
+            window.addEventListener('resize', resize);
+            resize();
+        }
+
+        hideLoading() {
+            const loading = document.getElementById('loading');
+            loading.style.opacity = '0';
+            loading.style.transition = 'opacity 0.5s';
+            setTimeout(() => loading.style.display = 'none', 500);
+        }
+
+        updateFPS(deltaTime) {
+            this.frameCount++;
+            this.fpsUpdateTime += deltaTime;
+
+            if (this.fpsUpdateTime >= 1.0) {
+                this.currentFPS = Math.round(this.frameCount / this.fpsUpdateTime);
+                document.getElementById('fps').textContent = `FPS: ${this.currentFPS}`;
+                this.frameCount = 0;
+                this.fpsUpdateTime = 0;
+            }
+        }
+
+        animate(currentTime) {
+            // Convert to seconds
+            currentTime *= 0.001;
+            const deltaTime = Math.min(currentTime - this.lastTime, 0.1); // Cap delta time
+            this.lastTime = currentTime;
+            this.time = currentTime;
+
+            // Update physics
+            this.physics.update(
+                this.particleSystem,
+                this.input.mouseX,
+                this.input.mouseY,
+                this.input.mouseVelX,
+                this.input.mouseVelY,
+                this.input.isMouseDown,
+                deltaTime,
+                this.time
+            );
+
+            // Render
+            this.renderer.render(
+                this.particleSystem,
+                this.input.mouseX,
+                this.input.mouseY,
+                this.time
+            );
+
+            // Update FPS counter
+            this.updateFPS(deltaTime);
+
+            // Continue animation loop
+            requestAnimationFrame((t) => this.animate(t));
+        }
+
+        start() {
+            requestAnimationFrame((t) => {
+                this.lastTime = t * 0.001;
+                this.animate(t);
+            });
+        }
+    }
+
+    // ============================================================
+    // INITIALIZE
+    // ============================================================
+    window.addEventListener('DOMContentLoaded', () => {
+        new Ferrofluid();
+    });
+    </script>
+</body>
+</html>
