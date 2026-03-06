@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Music Stream Pro - Collaborative Playlist</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="app-header">
+            <div class="logo">
+                <i class="fas fa-music"></i>
+                <h1>Music Stream Pro</h1>
+            </div>
+            <div class="search-container">
+                <div class="search-box">
+                    <i class="fas fa-search search-icon"></i>
+                    <input type="text" id="searchInput" placeholder="Search songs, artists..." autocomplete="off">
+                </div>
+                <div class="autocomplete-suggestions" id="autocompleteSuggestions"></div>
+            </div>
+            <div class="header-controls">
+                <button class="header-btn" id="collaborateBtn" title="Collaborate">
+                    <i class="fas fa-users"></i>
+                    <span id="collaboratorCount">3</span>
+                </button>
+                <button class="header-btn" id="settingsBtn" title="Settings">
+                    <i class="fas fa-cog"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Sidebar - Playlist -->
+            <aside class="sidebar" id="sidebar">
+                <div class="sidebar-header">
+                    <h2><i class="fas fa-list"></i> Playlist</h2>
+                    <button class="add-btn" id="addSongBtn" title="Add custom song">
+                        <i class="fas fa-plus"></i>
+                    </button>
+                </div>
+                <div class="playlist-info">
+                    <p class="collaborative-badge">
+                        <i class="fas fa-users"></i> Collaborative Playlist
+                    </p>
+                    <p class="last-sync">Syncing in real-time...</p>
+                </div>
+                <div class="playlist" id="playlist">
+                    <!-- Playlist items will be dynamically added -->
+                </div>
+            </aside>
+
+            <!-- Player Section -->
+            <section class="player-section">
+                <div class="now-playing">
+                    <div class="album-art">
+                        <img src="https://via.placeholder.com/300" alt="Album Art" id="albumArt">
+                        <div class="playing-indicator" id="playingIndicator">
+                            <span></span><span></span><span></span>
+                        </div>
+                    </div>
+
+                    <div class="track-info">
+                        <h2 class="track-title" id="trackTitle">Select a track</h2>
+                        <p class="track-artist" id="trackArtist">Browse the playlist</p>
+                        <p class="track-album" id="trackAlbum"></p>
+                    </div>
+
+                    <!-- Waveform Visualization -->
+                    <div class="waveform-container">
+                        <div id="waveform"></div>
+                    </div>
+
+                    <!-- Player Controls -->
+                    <div class="player-controls">
+                        <button class="control-btn" id="shuffleBtn" title="Shuffle">
+                            <i class="fas fa-random"></i>
+                        </button>
+                        <button class="control-btn" id="prevBtn" title="Previous">
+                            <i class="fas fa-step-backward"></i>
+                        </button>
+                        <button class="control-btn play-btn" id="playPauseBtn" title="Play/Pause">
+                            <i class="fas fa-play" id="playPauseIcon"></i>
+                        </button>
+                        <button class="control-btn" id="nextBtn" title="Next">
+                            <i class="fas fa-step-forward"></i>
+                        </button>
+                        <button class="control-btn" id="repeatBtn" title="Repeat">
+                            <i class="fas fa-redo"></i>
+                        </button>
+                    </div>
+
+                    <!-- Progress Bar -->
+                    <div class="progress-container">
+                        <span class="time" id="currentTime">0:00</span>
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="progressFill"></div>
+                            <div class="progress-handle" id="progressHandle"></div>
+                        </div>
+                        <span class="time" id="totalTime">0:00</span>
+                    </div>
+
+                    <!-- Volume Control -->
+                    <div class="volume-control">
+                        <i class="fas fa-volume-up" id="volumeIcon"></i>
+                        <input type="range" id="volumeSlider" min="0" max="100" value="70">
+                    </div>
+                </div>
+
+                <!-- Lyrics Section -->
+                <div class="lyrics-section" id="lyricsSection">
+                    <div class="lyrics-header">
+                        <h3><i class="fas fa-align-left"></i> Lyrics</h3>
+                        <button class="toggle-lyrics" id="toggleLyrics">
+                            <i class="fas fa-chevron-down"></i>
+                        </button>
+                    </div>
+                    <div class="lyrics-content" id="lyricsContent">
+                        <p class="no-lyrics">Select a track to view lyrics</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Queue Section -->
+            <aside class="queue-section" id="queueSection">
+                <div class="queue-header">
+                    <h3><i class="fas fa-stream"></i> Queue</h3>
+                    <span class="queue-count" id="queueCount">0</span>
+                </div>
+                <div class="queue-list" id="queueList">
+                    <p class="empty-queue">Queue is empty</p>
+                </div>
+                <div class="offline-status">
+                    <i class="fas fa-wifi-slash"></i>
+                    <span id="offlineStatus">Songs cached for offline playback</span>
+                </div>
+            </aside>
+        </main>
+
+        <!-- Toast Notifications -->
+        <div class="toast-container" id="toastContainer"></div>
+    </div>
+
+    <!-- Service Worker Registration -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js').then(reg => {
+                console.log('Service Worker registered');
+            }).catch(err => {
+                console.log('Service Worker registration failed');
+            });
+        }
+    </script>
+
+    <!-- Wavesurfer.js Library -->
+    <script src="https://unpkg.com/wavesurfer.js@7/dist/wavesurfer.min.js"></script>
+
+    <!-- Application Scripts -->
+    <script src="data.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
