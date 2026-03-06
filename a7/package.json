@@ -1,0 +1,13 @@
+{
+  "name": "vr-gallery",
+  "version": "1.0.0",
+  "description": "沉浸式VR展厅 - Three.js 3D交互体验",
+  "type": "module",
+  "scripts": {
+    "dev": "python3 -m http.server 8080",
+    "start": "python3 -m http.server 8080"
+  },
+  "keywords": ["threejs", "vr", "webxr", "gallery"],
+  "author": "",
+  "license": "MIT"
+}

@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>沉浸式VR展厅</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="info">
+        <h1>沉浸式VR展厅</h1>
+        <div id="instructions">
+            <p>🎮 操控方式:</p>
+            <ul>
+                <li>鼠标左键拖拽 - 旋转视角</li>
+                <li>鼠标右键拖拽 - 平移</li>
+                <li>滚轮 - 缩放</li>
+                <li>点击展品 - 查看详情</li>
+                <li>按VR按钮 - 进入VR模式</li>
+            </ul>
+            <p id="artwork-info">点击展品查看详情</p>
+        </div>
+        <button id="vr-button">🥽 进入VR</button>
+    </div>
+    <canvas id="canvas"></canvas>
+
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+        }
+    }
+    </script>
+    <script type="module" src="main.js"></script>
+</body>
+</html>
