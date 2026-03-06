@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>音乐流媒体播放器</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1>🎵 音乐播放器</h1>
+            <div class="search-container">
+                <input type="text" id="searchInput" placeholder="搜索歌曲..." autocomplete="off">
+                <div id="searchSuggestions" class="search-suggestions"></div>
+            </div>
+        </header>
+
+        <main class="main-content">
+            <!-- Player Section -->
+            <section class="player-section">
+                <div class="current-track-info">
+                    <div id="albumArt" class="album-art">
+                        <span class="album-placeholder">🎵</span>
+                    </div>
+                    <div class="track-details">
+                        <h2 id="trackTitle">选择一首歌曲</h2>
+                        <p id="trackArtist">--</p>
+                    </div>
+                </div>
+
+                <!-- Waveform Visualization -->
+                <div id="waveform" class="waveform-container"></div>
+
+                <!-- Progress Bar -->
+                <div class="progress-container">
+                    <span id="currentTime" class="time">0:00</span>
+                    <input type="range" id="progressBar" class="progress-bar" min="0" max="100" value="0">
+                    <span id="duration" class="time">0:00</span>
+                </div>
+
+                <!-- Player Controls -->
+                <div class="player-controls">
+                    <button id="prevBtn" class="control-btn" title="上一首">
+                        <svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
+                    </button>
+                    <button id="playBtn" class="control-btn play-btn" title="播放/暂停">
+                        <svg id="playIcon" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                        <svg id="pauseIcon" viewBox="0 0 24 24" style="display:none;"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+                    </button>
+                    <button id="nextBtn" class="control-btn" title="下一首">
+                        <svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+                    </button>
+                    <button id="shuffleBtn" class="control-btn" title="随机播放">
+                        <svg viewBox="0 0 24 24"><path d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z"/></svg>
+                    </button>
+                    <button id="repeatBtn" class="control-btn" title="循环播放">
+                        <svg viewBox="0 0 24 24"><path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z"/></svg>
+                    </button>
+                </div>
+
+                <!-- Volume Control -->
+                <div class="volume-control">
+                    <svg class="volume-icon" viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/></svg>
+                    <input type="range" id="volumeBar" class="volume-bar" min="0" max="100" value="75">
+                </div>
+            </section>
+
+            <!-- Lyrics Section -->
+            <section class="lyrics-section">
+                <h3>🎤 歌词</h3>
+                <div id="lyricsContainer" class="lyrics-container">
+                    <p class="no-lyrics">暂无歌词</p>
+                </div>
+            </section>
+
+            <!-- Playlist Section -->
+            <section class="playlist-section">
+                <div class="playlist-header">
+                    <h3>📋 播放列表</h3>
+                    <div class="playlist-status">
+                        <span id="collaborativeStatus" class="collab-status">● 协作中</span>
+                        <span id="offlineStatus" class="offline-status"></span>
+                    </div>
+                </div>
+                <div id="playlistContainer" class="playlist-container">
+                    <!-- Playlist items will be rendered here -->
+                </div>
+            </section>
+
+            <!-- Queue Section -->
+            <section class="queue-section">
+                <h3>🎶 播放队列</h3>
+                <div id="queueContainer" class="queue-container">
+                    <p class="empty-message">队列为空</p>
+                </div>
+            </section>
+        </main>
+
+        <footer class="footer">
+            <p>支持离线播放 | 设备旋转响应式设计</p>
+        </footer>
+    </div>
+
+    <!-- Wavesurfer.js Library -->
+    <script src="https://unpkg.com/wavesurfer.js@7/dist/wavesurfer.min.js"></script>
+
+    <script src="app.js"></script>
+</body>
+</html>
