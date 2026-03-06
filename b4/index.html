@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 居家生活助手</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <!-- 头部 -->
+        <header class="header">
+            <div class="header-content">
+                <div class="logo">
+                    <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
+                        <circle cx="20" cy="20" r="18" fill="url(#gradient)"/>
+                        <path d="M15 20C15 18.3431 16.3431 17 18 17H22C23.6569 17 25 18.3431 25 20V26H15V20Z" fill="white"/>
+                        <circle cx="20" cy="14" r="3" fill="white"/>
+                        <rect x="13" y="26" width="14" height="2" rx="1" fill="white" opacity="0.8"/>
+                        <defs>
+                            <linearGradient id="gradient" x1="0" y1="0" x2="40" y2="40">
+                                <stop offset="0%" stop-color="#667eea"/>
+                                <stop offset="100%" stop-color="#764ba2"/>
+                            </linearGradient>
+                        </defs>
+                    </svg>
+                    <h1>居家助手</h1>
+                </div>
+                <div class="status">
+                    <span class="status-dot"></span>
+                    <span class="status-text">在线</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- 主要内容区域 -->
+        <main class="main-content">
+            <!-- 聊天区域 -->
+            <div class="chat-container">
+                <div id="chatMessages" class="chat-messages">
+                    <!-- 欢迎消息 -->
+                    <div class="message assistant-message">
+                        <div class="message-avatar assistant-avatar">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="white">
+                                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                            </svg>
+                        </div>
+                        <div class="message-content">
+                            <div class="message-text">
+                                <p>您好！我是您的 AI 居家生活助手 👋</p>
+                                <p>我可以帮您解决日常生活中的各种问题，比如：</p>
+                                <ul>
+                                    <li>🍳 烹饪食谱和厨房技巧</li>
+                                    <li>🧹 家居清洁和整理建议</li>
+                                    <li>🛒 购物清单和生活妙招</li>
+                                    <li>🏠 家庭维修小知识</li>
+                                </ul>
+                                <p>请告诉我您需要什么帮助吧！</p>
+                            </div>
+                            <div class="message-time">刚刚</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 输入区域 -->
+                <div class="input-container">
+                    <div class="quick-actions">
+                        <button class="quick-btn" data-query="今天晚餐做什么？">🍽️ 晚餐建议</button>
+                        <button class="quick-btn" data-query="如何快速清洁厨房？">🧹 清洁技巧</button>
+                        <button class="quick-btn" data-query="整理衣柜有什么好方法？">👕 整理技巧</button>
+                        <button class="quick-btn" data-query="家庭常备药品清单">💊 药品清单</button>
+                    </div>
+                    <div class="input-wrapper">
+                        <textarea
+                            id="userInput"
+                            class="user-input"
+                            placeholder="输入您的问题或需求..."
+                            rows="1"
+                        ></textarea>
+                        <button id="sendBtn" class="send-btn">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 侧边栏 -->
+            <aside class="sidebar">
+                <div class="sidebar-section">
+                    <h3>📚 热门话题</h3>
+                    <div class="topic-list">
+                        <div class="topic-item" data-topic="cooking">
+                            <span class="topic-icon">🍳</span>
+                            <div class="topic-info">
+                                <h4>烹饪美食</h4>
+                                <p>食谱推荐与烹饪技巧</p>
+                            </div>
+                        </div>
+                        <div class="topic-item" data-topic="cleaning">
+                            <span class="topic-icon">🧹</span>
+                            <div class="topic-info">
+                                <h4>家居清洁</h4>
+                                <p>清洁妙招与整理方法</p>
+                            </div>
+                        </div>
+                        <div class="topic-item" data-topic="shopping">
+                            <span class="topic-icon">🛒</span>
+                            <div class="topic-info">
+                                <h4>生活购物</h4>
+                                <p>购物清单与省钱技巧</p>
+                            </div>
+                        </div>
+                        <div class="topic-item" data-topic="health">
+                            <span class="topic-icon">💪</span>
+                            <div class="topic-info">
+                                <h4>健康管理</h4>
+                                <p>健康建议与生活作息</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="sidebar-section">
+                    <h3>💡 今日小贴士</h3>
+                    <div class="tip-card">
+                        <p id="dailyTip">加载中...</p>
+                    </div>
+                </div>
+            </aside>
+        </main>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
