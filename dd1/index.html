@@ -1,0 +1,2123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0D0D0D">
+  <title>SonicFlow - Music Streaming</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/wavesurfer.js@7"></script>
+  <style>
+    *, *::before, *::after {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --bg-primary: #0D0D0D;
+      --bg-secondary: #1A1A2E;
+      --bg-tertiary: #16213E;
+      --accent-primary: #E94560;
+      --accent-secondary: #0F3460;
+      --text-primary: #FFFFFF;
+      --text-secondary: #A0A0A0;
+      --text-muted: #666666;
+      --waveform-active: #E94560;
+      --waveform-inactive: #3A3A5C;
+      --lyrics-highlight: #E94560;
+      --lyrics-normal: #666666;
+      --success: #4ADE80;
+      --border: #2A2A4A;
+      --shadow: 0 8px 32px rgba(0,0,0,0.4);
+      --glow: 0 0 20px rgba(233,69,96,0.3);
+      --glass: backdrop-filter: blur(20px);
+      --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    html, body {
+      height: 100%;
+      overflow: hidden;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      line-height: 1.5;
+    }
+
+    .app {
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      height: 100vh;
+      height: 100dvh;
+    }
+
+    /* Header */
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 24px;
+      background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border);
+      gap: 24px;
+    }
+
+    .logo {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--accent-primary);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      white-space: nowrap;
+    }
+
+    .logo svg {
+      width: 32px;
+      height: 32px;
+    }
+
+    .search-container {
+      position: relative;
+      flex: 1;
+      max-width: 500px;
+    }
+
+    .search-input {
+      width: 100%;
+      padding: 12px 16px 12px 44px;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      color: var(--text-primary);
+      font-size: 14px;
+      outline: none;
+      transition: var(--transition);
+    }
+
+    .search-input:focus {
+      border-color: var(--accent-primary);
+      box-shadow: var(--glow);
+    }
+
+    .search-input::placeholder {
+      color: var(--text-muted);
+    }
+
+    .search-icon {
+      position: absolute;
+      left: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-muted);
+      pointer-events: none;
+    }
+
+    .search-results {
+      position: absolute;
+      top: calc(100% + 8px);
+      left: 0;
+      right: 0;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      box-shadow: var(--shadow);
+      max-height: 400px;
+      overflow-y: auto;
+      z-index: 1000;
+      display: none;
+    }
+
+    .search-results.active {
+      display: block;
+    }
+
+    .search-result-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      cursor: pointer;
+      transition: var(--transition);
+    }
+
+    .search-result-item:hover {
+      background: var(--bg-tertiary);
+    }
+
+    .search-result-item img {
+      width: 48px;
+      height: 48px;
+      border-radius: 6px;
+      object-fit: cover;
+    }
+
+    .search-result-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .search-result-title {
+      font-weight: 500;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .search-result-artist {
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    .search-no-results {
+      padding: 24px;
+      text-align: center;
+      color: var(--text-muted);
+    }
+
+    .user-avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 600;
+      font-size: 14px;
+    }
+
+    /* Main Content */
+    .main-content {
+      display: grid;
+      grid-template-columns: 320px 1fr;
+      overflow: hidden;
+    }
+
+    /* Sidebar */
+    .sidebar {
+      background: var(--bg-secondary);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .sidebar-section {
+      padding: 20px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .sidebar-title {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .playlist-list {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      overflow-y: auto;
+      flex: 1;
+    }
+
+    .playlist-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: var(--transition);
+      border-left: 3px solid transparent;
+    }
+
+    .playlist-item:hover {
+      background: var(--bg-tertiary);
+    }
+
+    .playlist-item.active {
+      background: var(--bg-tertiary);
+      border-left-color: var(--accent-primary);
+    }
+
+    .playlist-item.collaborative::before {
+      content: '';
+      width: 8px;
+      height: 8px;
+      background: var(--success);
+      border-radius: 50%;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    .playlist-cover {
+      width: 48px;
+      height: 48px;
+      border-radius: 6px;
+      background: var(--bg-tertiary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    .playlist-cover img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .playlist-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .playlist-name {
+      font-weight: 500;
+      font-size: 14px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .playlist-meta {
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    /* Queue Section */
+    .queue-section {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    .queue-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .queue-title {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 14px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .offline-badge {
+      background: var(--accent-primary);
+      color: white;
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-weight: 600;
+    }
+
+    .queue-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px;
+    }
+
+    .queue-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 8px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: var(--transition);
+      position: relative;
+    }
+
+    .queue-item:hover {
+      background: var(--bg-tertiary);
+    }
+
+    .queue-item.playing {
+      background: rgba(233, 69, 96, 0.1);
+    }
+
+    .queue-item.playing .queue-item-title {
+      color: var(--accent-primary);
+    }
+
+    .queue-item-cover {
+      width: 40px;
+      height: 40px;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .queue-item-cover img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .queue-item-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .queue-item-title {
+      font-size: 13px;
+      font-weight: 500;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .queue-item-artist {
+      font-size: 11px;
+      color: var(--text-secondary);
+    }
+
+    .queue-item-duration {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .offline-indicator {
+      width: 8px;
+      height: 8px;
+      background: var(--success);
+      border-radius: 50%;
+      margin-left: 8px;
+    }
+
+    .queue-item-remove {
+      opacity: 0;
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      padding: 4px;
+      transition: var(--transition);
+    }
+
+    .queue-item:hover .queue-item-remove {
+      opacity: 1;
+    }
+
+    .queue-item-remove:hover {
+      color: var(--accent-primary);
+    }
+
+    /* Player Area */
+    .player-area {
+      display: flex;
+      flex-direction: column;
+      background: var(--bg-primary);
+      overflow: hidden;
+    }
+
+    .now-playing {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      padding: 32px;
+      overflow: hidden;
+    }
+
+    .track-info {
+      text-align: center;
+      margin-bottom: 24px;
+    }
+
+    .track-cover {
+      width: 280px;
+      height: 280px;
+      margin: 0 auto 24px;
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: var(--shadow);
+      position: relative;
+    }
+
+    .track-cover img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .track-cover.playing::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border: 2px solid var(--accent-primary);
+      border-radius: 16px;
+      animation: cover-pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes cover-pulse {
+      0%, 100% { opacity: 0.5; transform: scale(1); }
+      50% { opacity: 0.8; transform: scale(1.02); }
+    }
+
+    .track-title {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 28px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    .track-artist {
+      font-size: 16px;
+      color: var(--text-secondary);
+    }
+
+    /* Waveform */
+    .waveform-container {
+      background: var(--bg-secondary);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 24px;
+    }
+
+    #waveform {
+      width: 100%;
+      height: 100px;
+      cursor: pointer;
+    }
+
+    .waveform-time {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 12px;
+      font-size: 12px;
+      color: var(--text-muted);
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* Lyrics */
+    .lyrics-container {
+      flex: 1;
+      overflow: hidden;
+      position: relative;
+      border-radius: 12px;
+      background: var(--bg-secondary);
+    }
+
+    .lyrics-container::before,
+    .lyrics-container::after {
+      content: '';
+      position: absolute;
+      left: 0;
+      right: 0;
+      height: 60px;
+      z-index: 10;
+      pointer-events: none;
+    }
+
+    .lyrics-container::before {
+      top: 0;
+      background: linear-gradient(to bottom, var(--bg-secondary), transparent);
+    }
+
+    .lyrics-container::after {
+      bottom: 0;
+      background: linear-gradient(to top, var(--bg-secondary), transparent);
+    }
+
+    .lyrics-scroll {
+      height: 100%;
+      overflow-y: auto;
+      padding: 40px 24px;
+      scroll-behavior: smooth;
+    }
+
+    .lyric-line {
+      font-size: 18px;
+      font-weight: 500;
+      color: var(--lyrics-normal);
+      padding: 10px 16px;
+      margin: 4px 0;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: var(--transition);
+      text-align: center;
+      line-height: 1.6;
+    }
+
+    .lyric-line:hover {
+      background: rgba(233, 69, 96, 0.1);
+    }
+
+    .lyric-line.active {
+      color: var(--lyrics-highlight);
+      background: rgba(233, 69, 96, 0.15);
+      font-size: 20px;
+    }
+
+    .lyrics-empty {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      color: var(--text-muted);
+      text-align: center;
+      padding: 24px;
+    }
+
+    .lyrics-empty svg {
+      width: 48px;
+      height: 48px;
+      margin-bottom: 16px;
+      opacity: 0.5;
+    }
+
+    /* Player Bar */
+    .player-bar {
+      display: flex;
+      align-items: center;
+      gap: 24px;
+      padding: 16px 24px;
+      background: var(--bg-secondary);
+      border-top: 1px solid var(--border);
+    }
+
+    .player-track-info {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 200px;
+      max-width: 300px;
+    }
+
+    .player-track-cover {
+      width: 56px;
+      height: 56px;
+      border-radius: 8px;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+
+    .player-track-cover img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .player-track-text {
+      min-width: 0;
+    }
+
+    .player-track-title {
+      font-weight: 600;
+      font-size: 14px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .player-track-artist {
+      font-size: 12px;
+      color: var(--text-secondary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .player-controls {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      flex: 1;
+    }
+
+    .player-buttons {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .player-btn {
+      background: none;
+      border: none;
+      color: var(--text-primary);
+      cursor: pointer;
+      padding: 8px;
+      border-radius: 50%;
+      transition: var(--transition);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .player-btn:hover {
+      color: var(--accent-primary);
+      transform: scale(1.1);
+    }
+
+    .player-btn.play {
+      width: 56px;
+      height: 56px;
+      background: var(--accent-primary);
+      color: white;
+    }
+
+    .player-btn.play:hover {
+      background: #ff5a75;
+      color: white;
+      box-shadow: var(--glow);
+    }
+
+    .player-btn svg {
+      width: 24px;
+      height: 24px;
+    }
+
+    .player-btn.play svg {
+      width: 28px;
+      height: 28px;
+    }
+
+    .player-progress {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      width: 100%;
+      max-width: 600px;
+    }
+
+    .player-time {
+      font-size: 12px;
+      color: var(--text-muted);
+      font-variant-numeric: tabular-nums;
+      min-width: 45px;
+    }
+
+    .progress-bar {
+      flex: 1;
+      height: 4px;
+      background: var(--bg-tertiary);
+      border-radius: 2px;
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .progress-bar:hover {
+      height: 8px;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: var(--accent-primary);
+      border-radius: 2px;
+      position: relative;
+      transition: width 0.1s linear;
+    }
+
+    .progress-fill::after {
+      content: '';
+      position: absolute;
+      right: 0;
+      top: 50%;
+      transform: translateY(-50%) scale(0);
+      width: 12px;
+      height: 12px;
+      background: var(--accent-primary);
+      border-radius: 50%;
+      transition: var(--transition);
+    }
+
+    .progress-bar:hover .progress-fill::after {
+      transform: translateY(-50%) scale(1);
+    }
+
+    .player-volume {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 150px;
+    }
+
+    .volume-btn {
+      background: none;
+      border: none;
+      color: var(--text-secondary);
+      cursor: pointer;
+      padding: 4px;
+      transition: var(--transition);
+    }
+
+    .volume-btn:hover {
+      color: var(--text-primary);
+    }
+
+    .volume-slider {
+      width: 100px;
+      height: 4px;
+      background: var(--bg-tertiary);
+      border-radius: 2px;
+      cursor: pointer;
+      position: relative;
+    }
+
+    .volume-fill {
+      height: 100%;
+      background: var(--text-secondary);
+      border-radius: 2px;
+    }
+
+    .volume-slider:hover .volume-fill {
+      background: var(--accent-primary);
+    }
+
+    /* Toast Notification */
+    .toast-container {
+      position: fixed;
+      bottom: 100px;
+      right: 24px;
+      z-index: 2000;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .toast {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px 20px;
+      box-shadow: var(--shadow);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      animation: slideIn 0.3s ease-out;
+      max-width: 350px;
+    }
+
+    .toast.collaborative {
+      border-left: 3px solid var(--success);
+    }
+
+    .toast-icon {
+      width: 24px;
+      height: 24px;
+      color: var(--accent-primary);
+      flex-shrink: 0;
+    }
+
+    .toast-content {
+      flex: 1;
+    }
+
+    .toast-title {
+      font-weight: 600;
+      font-size: 13px;
+      margin-bottom: 2px;
+    }
+
+    .toast-message {
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateX(100%);
+      }
+      to {
+        opacity: 1;
+        transform: translateX(0);
+      }
+    }
+
+    /* Add to Queue Button */
+    .add-to-queue-btn {
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      color: var(--text-primary);
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-size: 13px;
+      cursor: pointer;
+      transition: var(--transition);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .add-to-queue-btn:hover {
+      background: var(--accent-primary);
+      border-color: var(--accent-primary);
+    }
+
+    .add-to-queue-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    /* Responsive */
+    @media (max-width: 1024px) {
+      .main-content {
+        grid-template-columns: 240px 1fr;
+      }
+
+      .track-cover {
+        width: 220px;
+        height: 220px;
+      }
+
+      .player-track-info {
+        min-width: 160px;
+      }
+
+      .player-volume {
+        display: none;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .header {
+        padding: 12px 16px;
+      }
+
+      .logo span {
+        display: none;
+      }
+
+      .search-container {
+        max-width: none;
+      }
+
+      .user-avatar {
+        display: none;
+      }
+
+      .main-content {
+        grid-template-columns: 1fr;
+      }
+
+      .sidebar {
+        display: none;
+      }
+
+      .player-area {
+        padding-bottom: 80px;
+      }
+
+      .now-playing {
+        padding: 16px;
+      }
+
+      .track-cover {
+        width: 180px;
+        height: 180px;
+        margin-bottom: 16px;
+      }
+
+      .track-title {
+        font-size: 20px;
+      }
+
+      .track-artist {
+        font-size: 14px;
+      }
+
+      .waveform-container {
+        padding: 12px;
+        margin-bottom: 16px;
+      }
+
+      #waveform {
+        height: 60px;
+      }
+
+      .lyric-line {
+        font-size: 15px;
+        padding: 8px 12px;
+      }
+
+      .lyric-line.active {
+        font-size: 17px;
+      }
+
+      .player-bar {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        padding: 12px 16px;
+        gap: 12px;
+      }
+
+      .player-track-info {
+        min-width: 0;
+        max-width: none;
+        flex: 0 0 auto;
+      }
+
+      .player-track-cover {
+        width: 48px;
+        height: 48px;
+      }
+
+      .player-track-text {
+        display: none;
+      }
+
+      .player-buttons {
+        gap: 8px;
+      }
+
+      .player-btn.play {
+        width: 48px;
+        height: 48px;
+      }
+
+      .player-progress {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        padding: 0 16px;
+        transform: translateY(-100%);
+        background: var(--bg-secondary);
+        padding-top: 12px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .search-input {
+        padding: 10px 12px 10px 38px;
+      }
+
+      .track-cover {
+        width: 140px;
+        height: 140px;
+      }
+
+      .player-btn svg {
+        width: 20px;
+        height: 20px;
+      }
+
+      .player-btn.play svg {
+        width: 24px;
+        height: 24px;
+      }
+    }
+
+    /* Loading state */
+    .loading {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+    }
+
+    .spinner {
+      width: 40px;
+      height: 40px;
+      border: 3px solid var(--bg-tertiary);
+      border-top-color: var(--accent-primary);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <!-- Header -->
+    <header class="header">
+      <div class="logo">
+        <svg viewBox="0 0 32 32" fill="none">
+          <circle cx="16" cy="16" r="14" stroke="currentColor" stroke-width="2"/>
+          <circle cx="16" cy="16" r="6" fill="currentColor"/>
+          <path d="M16 2 L16 6 M16 26 L16 30 M2 16 L6 16 M26 16 L30 16" stroke="currentColor" stroke-width="2"/>
+        </svg>
+        <span>SonicFlow</span>
+      </div>
+
+      <div class="search-container">
+        <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="8"/>
+          <path d="m21 21-4.35-4.35"/>
+        </svg>
+        <input type="text" class="search-input" id="searchInput" placeholder="Search tracks, artists..." autocomplete="off">
+        <div class="search-results" id="searchResults"></div>
+      </div>
+
+      <div class="user-avatar">JD</div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <!-- Sidebar -->
+      <aside class="sidebar">
+        <div class="sidebar-section">
+          <div class="sidebar-title">
+            <span>Your Playlists</span>
+            <button class="add-to-queue-btn" id="createPlaylistBtn" style="padding: 4px 8px; font-size: 11px;">+ New</button>
+          </div>
+          <div class="playlist-list" id="playlistList"></div>
+        </div>
+
+        <div class="sidebar-section queue-section">
+          <div class="queue-header">
+            <div class="queue-title">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M3 18v-6a9 9 0 0 1 18 0v6"/>
+                <path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/>
+              </svg>
+              Up Next
+              <span class="offline-badge" id="offlineBadge" style="display: none;">Offline</span>
+            </div>
+          </div>
+          <div class="queue-list" id="queueList"></div>
+        </div>
+      </aside>
+
+      <!-- Player Area -->
+      <section class="player-area">
+        <div class="now-playing">
+          <div class="track-info">
+            <div class="track-cover" id="trackCover">
+              <img src="https://picsum.photos/400/400?random=1" alt="Album Art">
+            </div>
+            <h1 class="track-title" id="trackTitle">Select a track to play</h1>
+            <p class="track-artist" id="trackArtist">Browse your playlists</p>
+          </div>
+
+          <div class="waveform-container">
+            <div id="waveform"></div>
+            <div class="waveform-time">
+              <span id="currentTime">0:00</span>
+              <span id="totalTime">0:00</span>
+            </div>
+          </div>
+
+          <div class="lyrics-container">
+            <div class="lyrics-scroll" id="lyricsScroll">
+              <div class="lyrics-empty" id="lyricsEmpty">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M9 18V5l12-2v13"/>
+                  <circle cx="6" cy="18" r="3"/>
+                  <circle cx="18" cy="16" r="3"/>
+                </svg>
+                <p>Select a track to view lyrics</p>
+              </div>
+              <div id="lyricsContent"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Player Bar -->
+    <footer class="player-bar">
+      <div class="player-track-info">
+        <div class="player-track-cover">
+          <img src="https://picsum.photos/100/100?random=1" alt="Now Playing" id="playerCover">
+        </div>
+        <div class="player-track-text">
+          <div class="player-track-title" id="playerTitle">No track playing</div>
+          <div class="player-track-artist" id="playerArtist">-</div>
+        </div>
+      </div>
+
+      <div class="player-controls">
+        <div class="player-buttons">
+          <button class="player-btn" id="prevBtn" title="Previous">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/>
+            </svg>
+          </button>
+          <button class="player-btn play" id="playBtn" title="Play">
+            <svg viewBox="0 0 24 24" fill="currentColor" id="playIcon">
+              <path d="M8 5v14l11-7z"/>
+            </svg>
+          </button>
+          <button class="player-btn" id="nextBtn" title="Next">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/>
+            </svg>
+          </button>
+        </div>
+        <div class="player-progress">
+          <span class="player-time" id="playerCurrentTime">0:00</span>
+          <div class="progress-bar" id="progressBar">
+            <div class="progress-fill" id="progressFill" style="width: 0%"></div>
+          </div>
+          <span class="player-time" id="playerTotalTime">0:00</span>
+        </div>
+      </div>
+
+      <div class="player-volume">
+        <button class="volume-btn" id="volumeBtn">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" id="volumeIcon">
+            <path d="M11 5L6 9H2v6h4l5 4V5z"/>
+            <path d="M15.54 8.46a5 5 0 0 1 0 7.07M19.07 4.93a10 10 0 0 1 0 14.14"/>
+          </svg>
+        </button>
+        <div class="volume-slider" id="volumeSlider">
+          <div class="volume-fill" id="volumeFill" style="width: 70%"></div>
+        </div>
+      </div>
+    </footer>
+  </div>
+
+  <!-- Toast Container -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <script>
+    // ==================== MOCK DATA ====================
+    const MOCK_TRACKS = [
+      {
+        id: '1',
+        title: 'Midnight City',
+        artist: 'Synthwave Dreams',
+        album: 'Neon Nights',
+        duration: 243,
+        coverUrl: 'https://picsum.photos/400/400?random=1',
+        audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3',
+        lyrics: [
+          { time: 0, text: '' },
+          { time: 5, text: 'Walking through the city lights' },
+          { time: 10, text: 'Neon stars above my head' },
+          { time: 15, text: 'In this moment, everything feels right' },
+          { time: 20, text: 'Underneath the sky so red' },
+          { time: 25, text: '' },
+          { time: 30, text: 'Midnight city calling me' },
+          { time: 35, text: 'Through the fog and through the rain' },
+          { time: 40, text: 'Every shadow seems to be' },
+          { time: 45, text: 'Driving me completely insane' },
+          { time: 50, text: '' },
+          { time: 55, text: 'Electric dreams are running wild' },
+          { time: 60, text: 'The future is now in sight' },
+          { time: 65, text: 'Like a message from a distant child' },
+          { time: 70, text: 'Brings me closer to the light' },
+          { time: 75, text: '' },
+          { time: 80, text: 'Midnight city, take me home' },
+          { time: 85, text: 'Through the streets I\'ve never known' },
+          { time: 90, text: 'Midnight city, let me roam' },
+          { time: 95, text: 'Let me feel the night, let me go' }
+        ]
+      },
+      {
+        id: '2',
+        title: 'Ocean Breeze',
+        artist: 'Coastal Vibes',
+        album: 'Summer Waves',
+        duration: 198,
+        coverUrl: 'https://picsum.photos/400/400?random=2',
+        audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3',
+        lyrics: [
+          { time: 0, text: '' },
+          { time: 8, text: 'Salt air and golden sand' },
+          { time: 14, text: 'Dancing waves upon the shore' },
+          { time: 20, text: 'Following the ocean\'s command' },
+          { time: 26, text: 'Always knowing what\'s in store' },
+          { time: 32, text: '' },
+          { time: 40, text: 'Ocean breeze, take me away' },
+          { time: 48, text: 'To a place where I can breathe' },
+          { time: 56, text: 'Ocean breeze, night and day' },
+          { time: 64, text: 'Bringing comfort, bringing ease' }
+        ]
+      },
+      {
+        id: '3',
+        title: 'Digital Heart',
+        artist: 'Cyber Pulse',
+        album: 'Electric Soul',
+        duration: 267,
+        coverUrl: 'https://picsum.photos/400/400?random=3',
+        audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3',
+        lyrics: [
+          { time: 0, text: '' },
+          { time: 6, text: 'Circuit lights are flashing bright' },
+          { time: 12, text: 'Binary code runs through my veins' },
+          { time: 18, text: 'In this world of black and white' },
+          { time: 24, text: 'Breaking free from all the chains' },
+          { time: 30, text: '' },
+          { time: 36, text: 'My heart beats in megabytes' },
+          { time: 42, text: 'Love translated in machine code' },
+          { time: 48, text: 'I\'m the dream that never sleeps' },
+          { time: 54, text: 'On and on, the signals flow' }
+        ]
+      },
+      {
+        id: '4',
+        title: 'Forest Whispers',
+        artist: 'Nature Sound',
+        album: 'Earth Tones',
+        duration: 312,
+        coverUrl: 'https://picsum.photos/400/400?random=4',
+        audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3',
+        lyrics: [
+          { time: 0, text: '' },
+          { time: 10, text: 'Leaves are dancing in the wind' },
+          { time: 17, text: 'Ancient trees reach for the sky' },
+          { time: 24, text: 'Every breath that I inhale' },
+          { time: 31, text: 'Tells me that this world is alive' },
+          { time: 38, text: '' },
+          { time: 46, text: 'Forest whispers secrets old' },
+          { time: 54, text: 'Stories told in green and gold' },
+          { time: 62, text: 'Take me deep into the wood' },
+          { time: 70, text: 'Where the mist makes everything good' }
+        ]
+      },
+      {
+        id: '5',
+        title: 'Cosmic Journey',
+        artist: 'Stellar Dreams',
+        album: 'Beyond the Stars',
+        duration: 289,
+        coverUrl: 'https://picsum.photos/400/400?random=5',
+        audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3',
+        lyrics: [
+          { time: 0, text: '' },
+          { time: 7, text: 'Floating through the universe' },
+          { time: 14, text: 'Past the moons and distant suns' },
+          { time: 21, text: 'Searching for a place to rest' },
+          { time: 28, text: 'Where the cosmic journey runs' },
+          { time: 35, text: '' },
+          { time: 42, text: 'Stars are calling from afar' },
+          { time: 49, text: 'Guiding me across the void' },
+          { time: 56, text: 'In my silver spaceship car' },
+          { time: 63, text: 'I will never be destroyed' }
+        ]
+      },
+      {
+        id: '6',
+        title: 'Urban Echo',
+        artist: 'City Lights',
+        album: 'Metropolis',
+        duration: 225,
+        coverUrl: 'https://picsum.photos/400/400?random=6',
+        audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-6.mp3',
+        lyrics: [
+          { time: 0, text: '' },
+          { time: 9, text: 'Skyscrapers touch the clouds' },
+          { time: 16, text: 'Streets below are roaring loud' },
+          { time: 23, text: 'In this concrete jungle night' },
+          { time: 30, text: 'Everything is getting bright' },
+          { time: 37, text: '' },
+          { time: 44, text: 'Urban echoes fill the air' },
+          { time: 51, text: 'Every sound tells a story' },
+          { time: 58, text: 'Life unfolds without a care' },
+          { time: 65, text: 'In this city built for glory' }
+        ]
+      },
+      {
+        id: '7',
+        title: 'Sunset Boulevard',
+        artist: 'Golden Hour',
+        album: 'Evening Glow',
+        duration: 256,
+        coverUrl: 'https://picsum.photos/400/400?random=7',
+        audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-7.mp3',
+        lyrics: [
+          { time: 0, text: '' },
+          { time: 11, text: 'Orange painted sky above' },
+          { time: 18, text: 'Sun descending, filled with love' },
+          { time: 25, text: 'Every moment slips away' },
+          { time: 32, text: 'But the colors stay' },
+          { time: 39, text: '' },
+          { time: 47, text: 'Sunset boulevard stretches wide' },
+          { time: 55, text: 'Golden light we cannot hide' },
+          { time: 63, text: 'In this hour, time stands still' },
+          { time: 71, text: 'Every note, every trill' }
+        ]
+      },
+      {
+        id: '8',
+        title: 'Electric Storm',
+        artist: 'Thunder Beat',
+        album: 'Lightning Strike',
+        duration: 278,
+        coverUrl: 'https://picsum.photos/400/400?random=8',
+        audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3',
+        lyrics: [
+          { time: 0, text: '' },
+          { time: 8, text: 'Lightning cracks the midnight sky' },
+          { time: 15, text: 'Thunder rolls, the clouds reply' },
+          { time: 22, text: 'Nature\'s fury, wild and free' },
+          { time: 29, text: 'Electric storm calls out to me' },
+          { time: 36, text: '' },
+          { time: 43, text: 'Feel the power, feel the heat' },
+          { time: 50, text: 'Lightning dancing on the street' },
+          { time: 57, text: 'In this moment, we are one' },
+          { time: 64, text: 'Together under thunder run' }
+        ]
+      },
+      {
+        id: '9',
+        title: 'Velvet Dreams',
+        artist: 'Soft Melodies',
+        album: 'Gentle Nights',
+        duration: 234,
+        coverUrl: 'https://picsum.photos/400/400?random=9',
+        audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-9.mp3',
+        lyrics: [
+          { time: 0, text: '' },
+          { time: 10, text: 'Soft as silk upon my skin' },
+          { time: 17, text: 'Dreams of velvet, soft within' },
+          { time: 24, text: 'Lullabies in moonlight glow' },
+          { time: 31, text: 'Carrying me to and fro' },
+          { time: 38, text: '' },
+          { time: 46, text: 'Velvet dreams, smooth and fine' },
+          { time: 54, text: 'Like a warm and gentle wine' },
+          { time: 62, text: 'Let me drift upon this sea' },
+          { time: 70, text: 'Of tranquility' }
+        ]
+      },
+      {
+        id: '10',
+        title: 'Racing Pulse',
+        artist: 'Adrenaline Rush',
+        album: 'Maximum Speed',
+        duration: 201,
+        coverUrl: 'https://picsum.photos/400/400?random=10',
+        audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-10.mp3',
+        lyrics: [
+          { time: 0, text: '' },
+          { time: 5, text: 'Heart is racing, beat by beat' },
+          { time: 10, text: 'Running forward on my feet' },
+          { time: 15, text: 'Pumping blood like gasoline' },
+          { time: 20, text: 'Running wild, running clean' },
+          { time: 25, text: '' },
+          { time: 30, text: 'Pulse is racing, can\'t slow down' },
+          { time: 35, text: 'Wearing determination\'s crown' },
+          { time: 40, text: 'Into the wind, I carve my way' },
+          { time: 45, text: 'No regret, just live for today' }
+        ]
+      }
+    ];
+
+    const COLLABORATIVE_USERS = ['Sarah', 'Mike', 'Emma', 'Alex', 'Jordan'];
+
+    // ==================== STATE ====================
+    const state = {
+      currentTrack: null,
+      isPlaying: false,
+      queue: [],
+      offlineQueue: [],
+      playlists: [
+        { id: 'liked', name: 'Liked Songs', tracks: MOCK_TRACKS.slice(0, 5), isCollaborative: false },
+        { id: 'recent', name: 'Recently Played', tracks: MOCK_TRACKS.slice(5), isCollaborative: false },
+        { id: 'collaborative', name: 'Collaborative Playlist', tracks: MOCK_TRACKS.slice(2, 6), isCollaborative: true }
+      ],
+      activePlaylist: null,
+      volume: parseFloat(localStorage.getItem('volume')) || 0.7,
+      isMuted: false,
+      searchResults: []
+    };
+
+    // ==================== WAVESURFER ====================
+    let wavesurfer = null;
+
+    function initWaveSurfer() {
+      wavesurfer = WaveSurfer.create({
+        container: '#waveform',
+        waveColor: '#3A3A5C',
+        progressColor: '#E94560',
+        cursorColor: '#E94560',
+        cursorWidth: 2,
+        barWidth: 2,
+        barGap: 1,
+        barRadius: 2,
+        height: window.innerWidth <= 768 ? 60 : 100,
+        normalize: true,
+        backend: 'WebAudio',
+        mediaControls: false,
+        interact: true
+      });
+
+      wavesurfer.on('timeupdate', (currentTime) => {
+        updateProgress(currentTime, wavesurfer.getDuration());
+        updateLyrics(currentTime);
+      });
+
+      wavesurfer.on('finish', () => {
+        playNext();
+      });
+
+      wavesurfer.on('ready', () => {
+        document.getElementById('totalTime').textContent = formatTime(wavesurfer.getDuration());
+        document.getElementById('playerTotalTime').textContent = formatTime(wavesurfer.getDuration());
+      });
+
+      wavesurfer.on('seek', (progress) => {
+        const duration = wavesurfer.getDuration();
+        const newTime = progress * duration;
+        updateLyrics(newTime);
+      });
+    }
+
+    function loadTrack(track) {
+      if (!track) return;
+
+      state.currentTrack = track;
+      wavesurfer?.load(track.audioUrl);
+
+      document.getElementById('trackCover').innerHTML = `<img src="${track.coverUrl}" alt="${track.title}">`;
+      document.getElementById('trackTitle').textContent = track.title;
+      document.getElementById('trackArtist').textContent = track.artist;
+      document.getElementById('playerCover').src = track.coverUrl;
+      document.getElementById('playerTitle').textContent = track.title;
+      document.getElementById('playerArtist').textContent = track.artist;
+
+      renderLyrics(track.lyrics);
+      updateQueueUI();
+
+      wavesurfer?.setVolume(state.volume);
+
+      // Update offline badge
+      const isOffline = state.offlineQueue.some(t => t.id === track.id);
+      if (isOffline) {
+        document.getElementById('trackCover').style.boxShadow = '0 0 20px rgba(74, 222, 128, 0.5)';
+      } else {
+        document.getElementById('trackCover').style.boxShadow = '';
+      }
+    }
+
+    // ==================== PLAYBACK CONTROLS ====================
+    function playTrack(track) {
+      if (!track) return;
+      loadTrack(track);
+      wavesurfer?.play();
+      state.isPlaying = true;
+      document.getElementById('trackCover').classList.add('playing');
+      updatePlayButton();
+    }
+
+    function togglePlay() {
+      if (!state.currentTrack) {
+        if (state.queue.length > 0) {
+          playTrack(state.queue[0]);
+        } else if (state.playlists[0]?.tracks.length > 0) {
+          playTrack(state.playlists[0].tracks[0]);
+        }
+        return;
+      }
+
+      if (state.isPlaying) {
+        wavesurfer?.pause();
+        state.isPlaying = false;
+        document.getElementById('trackCover').classList.remove('playing');
+      } else {
+        wavesurfer?.play();
+        state.isPlaying = true;
+        document.getElementById('trackCover').classList.add('playing');
+      }
+      updatePlayButton();
+    }
+
+    function playNext() {
+      if (state.queue.length > 0) {
+        const nextTrack = state.queue.shift();
+        playTrack(nextTrack);
+        updateQueueUI();
+      } else {
+        const currentIndex = state.currentTrack ?
+          state.playlists.find(p => p.tracks.some(t => t.id === state.currentTrack.id))?.tracks.findIndex(t => t.id === state.currentTrack.id) : -1;
+
+        const activeList = state.activePlaylist || state.playlists[0];
+        if (activeList && currentIndex !== -1) {
+          const nextIndex = (currentIndex + 1) % activeList.tracks.length;
+          playTrack(activeList.tracks[nextIndex]);
+        }
+      }
+    }
+
+    function playPrev() {
+      if (wavesurfer?.getCurrentTime() > 3) {
+        wavesurfer?.seekTo(0);
+        return;
+      }
+
+      const currentIndex = state.currentTrack ?
+        state.playlists.find(p => p.tracks.some(t => t.id === state.currentTrack.id))?.tracks.findIndex(t => t.id === state.currentTrack.id) : -1;
+
+      const activeList = state.activePlaylist || state.playlists[0];
+      if (activeList && currentIndex > 0) {
+        playTrack(activeList.tracks[currentIndex - 1]);
+      }
+    }
+
+    function updatePlayButton() {
+      const icon = document.getElementById('playIcon');
+      if (state.isPlaying) {
+        icon.innerHTML = '<rect x="6" y="4" width="4" height="16" fill="currentColor"/><rect x="14" y="4" width="4" height="16" fill="currentColor"/>';
+      } else {
+        icon.innerHTML = '<path d="M8 5v14l11-7z" fill="currentColor"/>';
+      }
+    }
+
+    function updateProgress(currentTime, duration) {
+      if (!duration || isNaN(duration)) return;
+
+      const percent = (currentTime / duration) * 100;
+      document.getElementById('progressFill').style.width = `${percent}%`;
+      document.getElementById('currentTime').textContent = formatTime(currentTime);
+      document.getElementById('playerCurrentTime').textContent = formatTime(currentTime);
+    }
+
+    function formatTime(seconds) {
+      if (!seconds || isNaN(seconds)) return '0:00';
+      const mins = Math.floor(seconds / 60);
+      const secs = Math.floor(seconds % 60);
+      return `${mins}:${secs.toString().padStart(2, '0')}`;
+    }
+
+    // ==================== VOLUME ====================
+    function updateVolume(vol) {
+      state.volume = Math.max(0, Math.min(1, vol));
+      state.isMuted = state.volume === 0;
+      wavesurfer?.setVolume(state.volume);
+      localStorage.setItem('volume', state.volume);
+      document.getElementById('volumeFill').style.width = `${state.volume * 100}%`;
+      updateVolumeIcon();
+    }
+
+    function toggleMute() {
+      if (state.isMuted) {
+        updateVolume(state.volume || 0.7);
+      } else {
+        wavesurfer?.setVolume(0);
+        state.isMuted = true;
+        document.getElementById('volumeFill').style.width = '0%';
+      }
+      updateVolumeIcon();
+    }
+
+    function updateVolumeIcon() {
+      const icon = document.getElementById('volumeIcon');
+      if (state.isMuted || state.volume === 0) {
+        icon.innerHTML = '<path d="M11 5L6 9H2v6h4l5 4V5z"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/>';
+      } else if (state.volume < 0.5) {
+        icon.innerHTML = '<path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>';
+      } else {
+        icon.innerHTML = '<path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07M19.07 4.93a10 10 0 0 1 0 14.14"/>';
+      }
+    }
+
+    // ==================== LYRICS ====================
+    function renderLyrics(lyrics) {
+      const container = document.getElementById('lyricsContent');
+      const empty = document.getElementById('lyricsEmpty');
+
+      if (!lyrics || lyrics.length === 0) {
+        container.innerHTML = '';
+        empty.style.display = 'flex';
+        return;
+      }
+
+      empty.style.display = 'none';
+      container.innerHTML = lyrics.map((line, i) =>
+        `<div class="lyric-line" data-time="${line.time}" data-index="${i}">${line.text || '&nbsp;'}</div>`
+      ).join('');
+
+      container.querySelectorAll('.lyric-line').forEach(line => {
+        line.addEventListener('click', () => {
+          const time = parseFloat(line.dataset.time);
+          wavesurfer?.seekTo(time / wavesurfer.getDuration());
+        });
+      });
+    }
+
+    function updateLyrics(currentTime) {
+      const lines = document.querySelectorAll('.lyric-line');
+      let activeIndex = -1;
+
+      lines.forEach((line, i) => {
+        const lineTime = parseFloat(line.dataset.time);
+        const nextLine = lines[i + 1];
+        const nextTime = nextLine ? parseFloat(nextLine.dataset.time) : Infinity;
+
+        if (currentTime >= lineTime && currentTime < nextTime) {
+          activeIndex = i;
+        }
+      });
+
+      lines.forEach((line, i) => {
+        line.classList.toggle('active', i === activeIndex);
+      });
+
+      if (activeIndex >= 0) {
+        const activeLine = lines[activeIndex];
+        const container = document.getElementById('lyricsScroll');
+        const lineTop = activeLine.offsetTop;
+        const lineHeight = activeLine.offsetHeight;
+        const containerHeight = container.clientHeight;
+        const scrollTarget = lineTop - (containerHeight / 2) + (lineHeight / 2);
+
+        container.scrollTo({
+          top: scrollTarget,
+          behavior: 'smooth'
+        });
+      }
+    }
+
+    // ==================== SEARCH ====================
+    let searchTimeout = null;
+
+    function handleSearch(query) {
+      clearTimeout(searchTimeout);
+
+      if (!query.trim()) {
+        document.getElementById('searchResults').classList.remove('active');
+        return;
+      }
+
+      searchTimeout = setTimeout(() => {
+        const results = MOCK_TRACKS.filter(track =>
+          track.title.toLowerCase().includes(query.toLowerCase()) ||
+          track.artist.toLowerCase().includes(query.toLowerCase())
+        );
+        renderSearchResults(results);
+      }, 300);
+    }
+
+    function renderSearchResults(results) {
+      const container = document.getElementById('searchResults');
+
+      if (results.length === 0) {
+        container.innerHTML = '<div class="search-no-results">No tracks found</div>';
+      } else {
+        container.innerHTML = results.slice(0, 8).map(track => `
+          <div class="search-result-item" data-id="${track.id}">
+            <img src="${track.coverUrl}" alt="${track.title}">
+            <div class="search-result-info">
+              <div class="search-result-title">${highlightMatch(track.title)}</div>
+              <div class="search-result-artist">${track.artist}</div>
+            </div>
+            <button class="add-to-queue-btn" onclick="event.stopPropagation(); addToQueue('${track.id}')" title="Add to Queue">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 5v14M5 12h14"/>
+              </svg>
+            </button>
+          </div>
+        `).join('');
+      }
+
+      container.classList.add('active');
+
+      container.querySelectorAll('.search-result-item').forEach(item => {
+        item.addEventListener('click', () => {
+          const track = MOCK_TRACKS.find(t => t.id === item.dataset.id);
+          if (track) {
+            state.queue.unshift(track);
+            playTrack(track);
+            container.classList.remove('active');
+            document.getElementById('searchInput').value = '';
+          }
+        });
+      });
+    }
+
+    function highlightMatch(text) {
+      const query = document.getElementById('searchInput').value;
+      if (!query) return text;
+      const regex = new RegExp(`(${query})`, 'gi');
+      return text.replace(regex, '<mark style="background: rgba(233,69,96,0.3); color: inherit;">$1</mark>');
+    }
+
+    // ==================== QUEUE ====================
+    function addToQueue(trackId) {
+      const track = MOCK_TRACKS.find(t => t.id === trackId);
+      if (track && !state.queue.some(t => t.id === trackId)) {
+        state.queue.push(track);
+        updateQueueUI();
+        showToast('Added to queue', track.title);
+      }
+    }
+
+    function removeFromQueue(trackId) {
+      state.queue = state.queue.filter(t => t.id !== trackId);
+      updateQueueUI();
+    }
+
+    function updateQueueUI() {
+      const container = document.getElementById('queueList');
+
+      if (state.queue.length === 0) {
+        container.innerHTML = '<div class="search-no-results">Queue is empty</div>';
+        return;
+      }
+
+      container.innerHTML = state.queue.map((track, index) => {
+        const isPlaying = state.currentTrack?.id === track.id;
+        const isOffline = state.offlineQueue.some(t => t.id === track.id);
+        return `
+          <div class="queue-item ${isPlaying ? 'playing' : ''}" data-id="${track.id}">
+            <div class="queue-item-cover">
+              <img src="${track.coverUrl}" alt="${track.title}">
+            </div>
+            <div class="queue-item-info">
+              <div class="queue-item-title">${track.title}</div>
+              <div class="queue-item-artist">${track.artist}</div>
+            </div>
+            <span class="queue-item-duration">${formatTime(track.duration)}</span>
+            ${isOffline ? '<span class="offline-indicator"></span>' : ''}
+            <button class="queue-item-remove" onclick="event.stopPropagation(); removeFromQueue('${track.id}')">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M18 6L6 18M6 6l12 12"/>
+              </svg>
+            </button>
+          </div>
+        `;
+      }).join('');
+
+      container.querySelectorAll('.queue-item').forEach(item => {
+        item.addEventListener('click', () => {
+          const track = state.queue.find(t => t.id === item.dataset.id);
+          if (track) {
+            state.queue = state.queue.filter(t => t.id !== track.id);
+            playTrack(track);
+          }
+        });
+      });
+    }
+
+    // ==================== OFFLINE QUEUE ====================
+    const CACHE_NAME = 'sonicflow-offline-v1';
+
+    async function cacheTrack(track) {
+      try {
+        const cache = await caches.open(CACHE_NAME);
+        await cache.add(track.audioUrl);
+        if (!state.offlineQueue.some(t => t.id === track.id)) {
+          state.offlineQueue.push(track);
+          saveOfflineQueue();
+          updateOfflineBadge();
+          updateQueueUI();
+          showToast('Available offline', track.title);
+        }
+      } catch (err) {
+        console.error('Failed to cache track:', err);
+        showToast('Offline save failed', track.title);
+      }
+    }
+
+    async function removeOffline(trackId) {
+      const track = state.offlineQueue.find(t => t.id === trackId);
+      if (track) {
+        try {
+          const cache = await caches.open(CACHE_NAME);
+          const response = await cache.match(track.audioUrl);
+          if (response) {
+            await cache.delete(track.audioUrl);
+          }
+        } catch (err) {
+          console.error('Failed to remove from cache:', err);
+        }
+        state.offlineQueue = state.offlineQueue.filter(t => t.id !== trackId);
+        saveOfflineQueue();
+        updateOfflineBadge();
+        updateQueueUI();
+      }
+    }
+
+    function saveOfflineQueue() {
+      localStorage.setItem('offlineQueue', JSON.stringify(state.offlineQueue.map(t => t.id)));
+    }
+
+    function loadOfflineQueue() {
+      const ids = JSON.parse(localStorage.getItem('offlineQueue') || '[]');
+      state.offlineQueue = ids.map(id => MOCK_TRACKS.find(t => t.id === id)).filter(Boolean);
+      updateOfflineBadge();
+    }
+
+    function updateOfflineBadge() {
+      const badge = document.getElementById('offlineBadge');
+      badge.style.display = state.offlineQueue.length > 0 ? 'inline' : 'none';
+      badge.textContent = `${state.offlineQueue.length} Offline`;
+    }
+
+    // ==================== PLAYLISTS ====================
+    function renderPlaylists() {
+      const container = document.getElementById('playlistList');
+
+      container.innerHTML = state.playlists.map(playlist => `
+        <div class="playlist-item ${playlist.isCollaborative ? 'collaborative' : ''} ${state.activePlaylist?.id === playlist.id ? 'active' : ''}"
+             data-id="${playlist.id}">
+          <div class="playlist-cover">
+            ${playlist.tracks[0]?.coverUrl ?
+              `<img src="${playlist.tracks[0].coverUrl}" alt="${playlist.name}">` :
+              '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>'
+            }
+          </div>
+          <div class="playlist-info">
+            <div class="playlist-name">${playlist.name}</div>
+            <div class="playlist-meta">${playlist.tracks.length} tracks</div>
+          </div>
+        </div>
+      `).join('');
+
+      container.querySelectorAll('.playlist-item').forEach(item => {
+        item.addEventListener('click', () => {
+          const playlist = state.playlists.find(p => p.id === item.dataset.id);
+          if (playlist) {
+            state.activePlaylist = playlist;
+            renderPlaylists();
+            if (playlist.tracks.length > 0) {
+              playTrack(playlist.tracks[0]);
+            }
+          }
+        });
+      });
+    }
+
+    // ==================== COLLABORATIVE PLAYLIST ====================
+    function simulateCollaborativeUpdate() {
+      const collaborativePlaylist = state.playlists.find(p => p.isCollaborative);
+      if (!collaborativePlaylist) return;
+
+      const availableTracks = MOCK_TRACKS.filter(
+        t => !collaborativePlaylist.tracks.some(ct => ct.id === t.id)
+      );
+
+      if (availableTracks.length === 0) return;
+
+      const randomTrack = availableTracks[Math.floor(Math.random() * availableTracks.length)];
+      const randomUser = COLLABORATIVE_USERS[Math.floor(Math.random() * COLLABORATIVE_USERS.length)];
+
+      collaborativePlaylist.tracks.push(randomTrack);
+      renderPlaylists();
+      showToast(`${randomUser} added to Collaborative`, randomTrack.title);
+    }
+
+    // ==================== TOAST ====================
+    function showToast(title, message) {
+      const container = document.getElementById('toastContainer');
+      const toast = document.createElement('div');
+      toast.className = 'toast collaborative';
+      toast.innerHTML = `
+        <svg class="toast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"/>
+          <path d="M12 8v4M12 16h.01"/>
+        </svg>
+        <div class="toast-content">
+          <div class="toast-title">${title}</div>
+          <div class="toast-message">${message}</div>
+        </div>
+      `;
+      container.appendChild(toast);
+
+      setTimeout(() => {
+        toast.style.animation = 'slideIn 0.3s ease-out reverse';
+        setTimeout(() => toast.remove(), 300);
+      }, 3000);
+    }
+
+    // ==================== PROGRESS BAR SEEK ====================
+    function setupProgressBar() {
+      const progressBar = document.getElementById('progressBar');
+
+      progressBar.addEventListener('click', (e) => {
+        if (!wavesurfer || !state.currentTrack) return;
+        const rect = progressBar.getBoundingClientRect();
+        const percent = (e.clientX - rect.left) / rect.width;
+        wavesurfer.seekTo(percent);
+      });
+    }
+
+    function setupVolumeSlider() {
+      const slider = document.getElementById('volumeSlider');
+
+      slider.addEventListener('click', (e) => {
+        const rect = slider.getBoundingClientRect();
+        const percent = (e.clientX - rect.left) / rect.width;
+        updateVolume(percent);
+      });
+    }
+
+    // ==================== KEYBOARD SHORTCUTS ====================
+    function setupKeyboardShortcuts() {
+      document.addEventListener('keydown', (e) => {
+        if (e.target.tagName === 'INPUT') return;
+
+        switch (e.code) {
+          case 'Space':
+            e.preventDefault();
+            togglePlay();
+            break;
+          case 'ArrowLeft':
+            if (wavesurfer) {
+              const newTime = Math.max(0, wavesurfer.getCurrentTime() - 10);
+              wavesurfer.seekTo(newTime / wavesurfer.getDuration());
+            }
+            break;
+          case 'ArrowRight':
+            if (wavesurfer) {
+              const newTime = Math.min(wavesurfer.getDuration(), wavesurfer.getCurrentTime() + 10);
+              wavesurfer.seekTo(newTime / wavesurfer.getDuration());
+            }
+            break;
+          case 'KeyM':
+            toggleMute();
+            break;
+        }
+      });
+    }
+
+    // ==================== ORIENTATION CHANGE ====================
+    function setupOrientationHandler() {
+      let resizeTimeout;
+      window.addEventListener('resize', () => {
+        clearTimeout(resizeTimeout);
+        resizeTimeout = setTimeout(() => {
+          if (wavesurfer) {
+            const height = window.innerWidth <= 768 ? 60 : 100;
+            wavesurfer.setOptions({ height });
+          }
+        }, 250);
+      });
+    }
+
+    // ==================== OFFLINE CONTEXT ====================
+    async function getOfflineAudioUrl(track) {
+      try {
+        const cache = await caches.open(CACHE_NAME);
+        const response = await cache.match(track.audioUrl);
+        if (response) {
+          return response.url;
+        }
+      } catch (err) {
+        console.error('Cache lookup failed:', err);
+      }
+      return track.audioUrl;
+    }
+
+    // Override wavesurfer load to use offline
+    const originalLoadTrack = loadTrack;
+    loadTrack = async function(track) {
+      if (!track) return;
+      const audioUrl = await getOfflineAudioUrl(track);
+      state.currentTrack = { ...track, audioUrl };
+
+      wavesurfer?.load(state.currentTrack.audioUrl);
+
+      document.getElementById('trackCover').innerHTML = `<img src="${track.coverUrl}" alt="${track.title}">`;
+      document.getElementById('trackTitle').textContent = track.title;
+      document.getElementById('trackArtist').textContent = track.artist;
+      document.getElementById('playerCover').src = track.coverUrl;
+      document.getElementById('playerTitle').textContent = track.title;
+      document.getElementById('playerArtist').textContent = track.artist;
+
+      renderLyrics(track.lyrics);
+      updateQueueUI();
+      wavesurfer?.setVolume(state.volume);
+
+      const isOffline = state.offlineQueue.some(t => t.id === track.id);
+      document.getElementById('trackCover').style.boxShadow = isOffline ?
+        '0 0 20px rgba(74, 222, 128, 0.5)' : '';
+    };
+
+    // ==================== INITIALIZATION ====================
+    function init() {
+      initWaveSurfer();
+      renderPlaylists();
+      loadOfflineQueue();
+      updateQueueUI();
+      updateVolume(state.volume);
+      setupProgressBar();
+      setupVolumeSlider();
+      setupKeyboardShortcuts();
+      setupOrientationHandler();
+
+      // Search handlers
+      const searchInput = document.getElementById('searchInput');
+      searchInput.addEventListener('input', (e) => handleSearch(e.target.value));
+      searchInput.addEventListener('focus', (e) => {
+        if (e.target.value) handleSearch(e.target.value);
+      });
+      document.addEventListener('click', (e) => {
+        if (!e.target.closest('.search-container')) {
+          document.getElementById('searchResults').classList.remove('active');
+        }
+      });
+
+      // Player controls
+      document.getElementById('playBtn').addEventListener('click', togglePlay);
+      document.getElementById('nextBtn').addEventListener('click', playNext);
+      document.getElementById('prevBtn').addEventListener('click', playPrev);
+      document.getElementById('volumeBtn').addEventListener('click', toggleMute);
+
+      // Start collaborative updates
+      setInterval(simulateCollaborativeUpdate, 30000);
+
+      // Handle add to offline on queue items
+      const originalUpdateQueueUI = updateQueueUI;
+      updateQueueUI = function() {
+        originalUpdateQueueUI();
+        // Add offline button to queue items
+        const container = document.getElementById('queueList');
+        container.querySelectorAll('.queue-item').forEach(item => {
+          const trackId = item.dataset.id;
+          const isOffline = state.offlineQueue.some(t => t.id === trackId);
+
+          let offlineBtn = item.querySelector('.offline-btn');
+          if (!offlineBtn) {
+            offlineBtn = document.createElement('button');
+            offlineBtn.className = 'queue-item-remove offline-btn';
+            offlineBtn.style.marginLeft = '4px';
+            offlineBtn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="7,10 12,15 17,10"/>
+              <line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>`;
+            item.appendChild(offlineBtn);
+          }
+
+          offlineBtn.onclick = (e) => {
+            e.stopPropagation();
+            if (isOffline) {
+              removeOffline(trackId);
+            } else {
+              const track = MOCK_TRACKS.find(t => t.id === trackId) || state.queue.find(t => t.id === trackId);
+              if (track) cacheTrack(track);
+            }
+          };
+
+          offlineBtn.style.opacity = isOffline ? '1' : '0.5';
+          offlineBtn.style.color = isOffline ? 'var(--success)' : '';
+        });
+      };
+
+      // Initialize queue UI
+      updateQueueUI();
+    }
+
+    document.addEventListener('DOMContentLoaded', init);
+  </script>
+</body>
+</html>
