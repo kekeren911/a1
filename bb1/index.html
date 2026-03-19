@@ -1,0 +1,1239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SciCalc Pro</title>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #f5f5f7;
+            --calc-bg: #ffffff;
+            --calc-shadow: rgba(0,0,0,0.1);
+            --display-bg: #e8e8e8;
+            --display-text: #1a1a2e;
+            --btn-num: #ffffff;
+            --btn-num-text: #333;
+            --btn-op: #4a90d9;
+            --btn-op-text: #fff;
+            --btn-func: #6c5ce7;
+            --btn-func-text: #fff;
+            --btn-eq: #2ecc71;
+            --btn-eq-text: #fff;
+            --btn-hover: rgba(0,0,0,0.08);
+            --text-primary: #333;
+            --text-secondary: #666;
+            --border: #ddd;
+            --history-bg: #fafafa;
+            --graph-bg: #ffffff;
+            --graph-grid: #e0e0e0;
+            --graph-axis: #444;
+            --graph-curve: #e74c3c;
+        }
+
+        [data-theme="dark"] {
+            --bg: #1a1a2e;
+            --calc-bg: #16213e;
+            --calc-shadow: 0 8px 32px rgba(74, 144, 217, 0.15);
+            --display-bg: #0f0f23;
+            --display-text: #eaeaea;
+            --btn-num: #2d2d44;
+            --btn-num-text: #eaeaea;
+            --btn-op: #e17055;
+            --btn-op-text: #fff;
+            --btn-func: #a29bfe;
+            --btn-func-text: #1a1a2e;
+            --btn-eq: #00b894;
+            --btn-eq-text: #1a1a2e;
+            --btn-hover: rgba(255,255,255,0.08);
+            --text-primary: #eaeaea;
+            --text-secondary: #a0a0a0;
+            --border: #2d2d44;
+            --history-bg: #0f0f23;
+            --graph-bg: #0f0f23;
+            --graph-grid: #2d2d44;
+            --graph-axis: #a0a0a0;
+            --graph-curve: #00b894;
+        }
+
+        [data-theme="retro"] {
+            --bg: #2c2c2c;
+            --calc-bg: linear-gradient(145deg, #3d3d3d, #4a4a4a);
+            --calc-shadow: 0 8px 24px rgba(0,0,0,0.4);
+            --display-bg: #1a1a1a;
+            --display-text: #33ff33;
+            --btn-num: #d4c4a8;
+            --btn-num-text: #3d3d3d;
+            --btn-op: #8b4513;
+            --btn-op-text: #fff;
+            --btn-func: #654321;
+            --btn-func-text: #d4c4a8;
+            --btn-eq: #228b22;
+            --btn-eq-text: #fff;
+            --btn-hover: rgba(255,255,255,0.15);
+            --text-primary: #d4c4a8;
+            --text-secondary: #8b7355;
+            --border: #555;
+            --history-bg: #252525;
+            --graph-bg: #1a1a1a;
+            --graph-grid: #333;
+            --graph-axis: #33ff33;
+            --graph-curve: #ffcc00;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'DM Sans', system-ui, sans-serif;
+            background: var(--bg);
+            min-height: 100vh;
+            color: var(--text-primary);
+            transition: background 0.3s, color 0.3s;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        h1 {
+            font-size: 1.8rem;
+            font-weight: 600;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .theme-switcher {
+            display: flex;
+            gap: 8px;
+        }
+
+        .theme-btn {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            border: 2px solid var(--border);
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            position: relative;
+        }
+
+        .theme-btn:hover {
+            transform: scale(1.1);
+        }
+
+        .theme-btn.active {
+            box-shadow: 0 0 0 3px var(--btn-op);
+        }
+
+        .theme-btn.light { background: linear-gradient(135deg, #f5f5f7, #e8e8e8); }
+        .theme-btn.dark { background: linear-gradient(135deg, #1a1a2e, #16213e); }
+        .theme-btn.retro { background: linear-gradient(135deg, #3d3d3d, #2c2c2c); }
+
+        .main-layout {
+            display: grid;
+            grid-template-columns: 1fr 280px;
+            gap: 20px;
+        }
+
+        @media (max-width: 900px) {
+            .main-layout {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .calculator {
+            background: var(--calc-bg);
+            border-radius: 20px;
+            padding: 24px;
+            box-shadow: 0 4px 20px var(--calc-shadow);
+        }
+
+        .display {
+            background: var(--display-bg);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            min-height: 100px;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            align-items: flex-end;
+            overflow: hidden;
+        }
+
+        .expression {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1.2rem;
+            color: var(--text-secondary);
+            word-break: break-all;
+            text-align: right;
+            width: 100%;
+            min-height: 1.5em;
+        }
+
+        .result {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 2.5rem;
+            font-weight: 500;
+            color: var(--display-text);
+            text-align: right;
+            width: 100%;
+            transition: font-size 0.2s;
+        }
+
+        .result.error {
+            font-size: 1.2rem;
+            color: #e74c3c;
+        }
+
+        .mode-indicator {
+            font-size: 0.75rem;
+            padding: 4px 8px;
+            background: var(--btn-op);
+            color: white;
+            border-radius: 4px;
+            margin-bottom: 8px;
+        }
+
+        .buttons {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 8px;
+        }
+
+        button {
+            font-family: 'DM Sans', sans-serif;
+            font-size: 1rem;
+            font-weight: 500;
+            padding: 16px 8px;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.15s;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        button:active {
+            transform: scale(0.95);
+        }
+
+        .btn-num {
+            background: var(--btn-num);
+            color: var(--btn-num-text);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .btn-num:hover {
+            background: var(--btn-hover);
+        }
+
+        .btn-op {
+            background: var(--btn-op);
+            color: var(--btn-op-text);
+        }
+
+        .btn-op:hover {
+            filter: brightness(1.1);
+        }
+
+        .btn-func {
+            background: var(--btn-func);
+            color: var(--btn-func-text);
+            font-size: 0.85rem;
+        }
+
+        .btn-func:hover {
+            filter: brightness(1.1);
+        }
+
+        .btn-eq {
+            background: var(--btn-eq);
+            color: var(--btn-eq-text);
+        }
+
+        .btn-eq:hover {
+            filter: brightness(1.1);
+        }
+
+        .btn-clear {
+            background: #e74c3c;
+            color: white;
+        }
+
+        .btn-clear:hover {
+            filter: brightness(1.1);
+        }
+
+        .btn-secondary {
+            background: var(--btn-num);
+            color: var(--btn-num-text);
+            font-size: 0.85rem;
+        }
+
+        button.span-2 {
+            grid-column: span 2;
+        }
+
+        .history-panel {
+            background: var(--history-bg);
+            border-radius: 16px;
+            padding: 16px;
+            max-height: 500px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .history-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .history-header h2 {
+            font-size: 1rem;
+            font-weight: 600;
+        }
+
+        .clear-history {
+            font-size: 0.75rem;
+            padding: 6px 12px;
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+            border-radius: 6px;
+        }
+
+        .clear-history:hover {
+            background: var(--btn-hover);
+        }
+
+        .history-list {
+            flex: 1;
+            overflow-y: auto;
+            position: relative;
+        }
+
+        .history-list::before {
+            content: '';
+            position: sticky;
+            top: 0;
+            display: block;
+            height: 20px;
+            background: linear-gradient(var(--history-bg), transparent);
+            pointer-events: none;
+        }
+
+        .history-item {
+            padding: 10px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-bottom: 4px;
+            transition: background 0.15s;
+        }
+
+        .history-item:hover {
+            background: var(--btn-hover);
+        }
+
+        .history-item .expr {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .history-item .res {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1rem;
+            font-weight: 500;
+            color: var(--display-text);
+        }
+
+        .graph-section {
+            margin-top: 20px;
+            background: var(--calc-bg);
+            border-radius: 20px;
+            padding: 24px;
+            box-shadow: 0 4px 20px var(--calc-shadow);
+        }
+
+        .graph-header {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+        }
+
+        .graph-input {
+            flex: 1;
+            min-width: 200px;
+            padding: 12px 16px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1rem;
+            border: 2px solid var(--border);
+            border-radius: 10px;
+            background: var(--display-bg);
+            color: var(--display-text);
+        }
+
+        .graph-input:focus {
+            outline: none;
+            border-color: var(--btn-op);
+        }
+
+        .graph-btn {
+            padding: 12px 24px;
+            background: var(--btn-op);
+            color: white;
+            border-radius: 10px;
+            font-weight: 500;
+        }
+
+        .graph-controls {
+            display: flex;
+            gap: 8px;
+            margin-left: auto;
+        }
+
+        .zoom-btn {
+            width: 40px;
+            height: 40px;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--btn-num);
+            color: var(--btn-num-text);
+            font-size: 1.2rem;
+        }
+
+        #graphCanvas {
+            width: 100%;
+            height: 400px;
+            border-radius: 12px;
+            background: var(--graph-bg);
+        }
+
+        .keyboard-hint {
+            margin-top: 16px;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            text-align: center;
+        }
+
+        kbd {
+            display: inline-block;
+            padding: 2px 6px;
+            background: var(--display-bg);
+            border-radius: 4px;
+            font-family: 'JetBrains Mono', monospace;
+            margin: 0 2px;
+        }
+
+        @media (max-width: 600px) {
+            .container { padding: 12px; }
+            .calculator { padding: 16px; }
+            .buttons { gap: 6px; }
+            button { padding: 12px 4px; font-size: 0.9rem; }
+            .result { font-size: 2rem; }
+            .graph-controls { margin-left: 0; width: 100%; }
+        }
+
+        @media (max-width: 400px) {
+            .buttons {
+                grid-template-columns: repeat(4, 1fr);
+            }
+            .btn-func {
+                font-size: 0.7rem;
+                padding: 10px 2px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>SciCalc Pro</h1>
+            <div class="theme-switcher">
+                <button class="theme-btn light active" data-theme="light" title="Light"></button>
+                <button class="theme-btn dark" data-theme="dark" title="Dark"></button>
+                <button class="theme-btn retro" data-theme="retro" title="Retro"></button>
+            </div>
+        </header>
+
+        <div class="main-layout">
+            <div class="calculator">
+                <div class="display">
+                    <div class="mode-indicator" id="modeIndicator">DEG</div>
+                    <div class="expression" id="expression"></div>
+                    <div class="result" id="result">0</div>
+                </div>
+
+                <div class="buttons">
+                    <button class="btn-clear" data-action="clear">C</button>
+                    <button class="btn-op" data-action="backspace">⌫</button>
+                    <button class="btn-secondary" data-action="bracket">()</button>
+                    <button class="btn-op" data-action="op" data-value="%">%</button>
+                    <button class="btn-secondary" data-action="degRad">DEG</button>
+
+                    <button class="btn-secondary" data-action="func" data-value="sin">sin</button>
+                    <button class="btn-secondary" data-action="func" data-value="cos">cos</button>
+                    <button class="btn-secondary" data-action="func" data-value="tan">tan</button>
+                    <button class="btn-secondary" data-action="func" data-value="log">log</button>
+                    <button class="btn-secondary" data-action="func" data-value="ln">ln</button>
+
+                    <button class="btn-num" data-action="num" data-value="7">7</button>
+                    <button class="btn-num" data-action="num" data-value="8">8</button>
+                    <button class="btn-num" data-action="num" data-value="9">9</button>
+                    <button class="btn-op" data-action="op" data-value="/">÷</button>
+                    <button class="btn-secondary" data-action="func" data-value="^">x^y</button>
+
+                    <button class="btn-num" data-action="num" data-value="4">4</button>
+                    <button class="btn-num" data-action="num" data-value="5">5</button>
+                    <button class="btn-num" data-action="num" data-value="6">6</button>
+                    <button class="btn-op" data-action="op" data-value="*">×</button>
+                    <button class="btn-secondary" data-action="func" data-value="sqrt">√</button>
+
+                    <button class="btn-num" data-action="num" data-value="1">1</button>
+                    <button class="btn-num" data-action="num" data-value="2">2</button>
+                    <button class="btn-num" data-action="num" data-value="3">3</button>
+                    <button class="btn-op" data-action="op" data-value="-">−</button>
+                    <button class="btn-secondary" data-action="func" data-value="abs">|x|</button>
+
+                    <button class="btn-num" data-action="num" data-value="0">0</button>
+                    <button class="btn-num" data-action="num" data-value=".">.</button>
+                    <button class="btn-op" data-action="ans">ANS</button>
+                    <button class="btn-op" data-action="op" data-value="+">+</button>
+                    <button class="btn-eq span-2" data-action="calculate">=</button>
+
+                    <button class="btn-secondary" data-action="pi">π</button>
+                    <button class="btn-secondary" data-action="e">e</button>
+                    <button class="btn-secondary" data-action="plot">Plot</button>
+                    <button class="btn-secondary" data-action="history">History</button>
+                </div>
+            </div>
+
+            <div class="history-panel" id="historyPanel">
+                <div class="history-header">
+                    <h2>History</h2>
+                    <button class="clear-history" data-action="clearHistory">Clear</button>
+                </div>
+                <div class="history-list" id="historyList"></div>
+            </div>
+        </div>
+
+        <div class="graph-section">
+            <div class="graph-header">
+                <input type="text" class="graph-input" id="graphInput" placeholder="y = x^2" value="y = sin(x)">
+                <button class="graph-btn" id="plotBtn">Plot</button>
+                <div class="graph-controls">
+                    <button class="zoom-btn" id="zoomIn">+</button>
+                    <button class="zoom-btn" id="zoomOut">−</button>
+                    <button class="zoom-btn" id="resetZoom">↺</button>
+                </div>
+            </div>
+            <canvas id="graphCanvas"></canvas>
+        </div>
+
+        <div class="keyboard-hint">
+            <kbd>0</kbd>-<kbd>9</kbd> numbers &nbsp;|&nbsp;
+            <kbd>+</kbd><kbd>-</kbd><kbd>*</kbd><kbd>/</kbd> operators &nbsp;|&nbsp;
+            <kbd>Enter</kbd> calculate &nbsp;|&nbsp;
+            <kbd>Esc</kbd> clear &nbsp;|&nbsp;
+            <kbd>h</kbd> history &nbsp;|&nbsp;
+            <kbd>t</kbd> theme
+        </div>
+    </div>
+
+    <script>
+        const Calc = (() => {
+            const PI = Math.PI;
+            const E = Math.E;
+            let isDegreeMode = true;
+            let lastAnswer = 0;
+            let history = JSON.parse(localStorage.getItem('calcHistory') || '[]');
+            let expression = '';
+
+            const TOUCH_GRACE_MS = 300;
+            let lastTouchEnd = 0;
+
+            function toRadians(deg) { return deg * PI / 180; }
+            function toDegrees(rad) { return rad * 180 / PI; }
+
+            function tokenize(expr) {
+                const tokens = [];
+                let i = 0;
+                expr = expr.replace(/\s+/g, '');
+
+                const patterns = [
+                    { type: 'NUMBER', regex: /^(?:(\d+\.?\d*)|(\.\d+))(?:[eE][+-]?\d+)?/ },
+                    { type: 'FUNC', regex: /^(sin|cos|tan|log|ln|sqrt|abs|asin|acos|atan)/ },
+                    { type: 'CONST', regex: /^(pi|e)/ },
+                    { type: 'OP', regex: /^[+\-*/^%]/ },
+                    { type: 'LPAREN', regex: /^\(/ },
+                    { type: 'RPAREN', regex: /^\)/ },
+                ];
+
+                while (i < expr.length) {
+                    let matched = false;
+
+                    for (const p of patterns) {
+                        const m = expr.slice(i).match(p.regex);
+                        if (m) {
+                            let val = m[0];
+                            if (p.type === 'NUMBER') val = parseFloat(val);
+                            else if (p.type === 'CONST') {
+                                val = val === 'pi' ? PI : E;
+                                tokens.push({ type: 'NUMBER', value: val });
+                                i += m[0].length;
+                                matched = true;
+                                break;
+                            } else if (p.type === 'OP' && val === '-') {
+                                if (tokens.length === 0 || ['LPAREN', 'OP', 'FUNC'].includes(tokens[tokens.length - 1]?.type)) {
+                                    tokens.push({ type: 'NUMBER', value: 0 });
+                                }
+                            }
+                            tokens.push({ type: p.type, value: val });
+                            i += m[0].length;
+                            matched = true;
+                            break;
+                        }
+                    }
+
+                    if (!matched) throw new Error(`Unexpected character: ${expr[i]}`);
+                }
+
+                return tokens;
+            }
+
+            const precedence = { '+': 1, '-': 1, '*': 2, '/': 2, '%': 2, '^': 3 };
+            const rightAssoc = ['^'];
+
+            function toRPN(tokens) {
+                const output = [];
+                const opStack = [];
+
+                for (const token of tokens) {
+                    if (token.type === 'NUMBER') {
+                        output.push(token);
+                    } else if (token.type === 'FUNC') {
+                        opStack.push(token);
+                    } else if (token.type === 'OP') {
+                        while (opStack.length > 0) {
+                            const top = opStack[opStack.length - 1];
+                            if (top.type === 'FUNC') break;
+                            if ((precedence[top.value] || 0) > precedence[token.value]) break;
+                            if ((precedence[top.value] || 0) === precedence[token.value] && !rightAssoc.includes(token.value)) break;
+                            output.push(opStack.pop());
+                        }
+                        opStack.push(token);
+                    } else if (token.type === 'LPAREN') {
+                        opStack.push(token);
+                    } else if (token.type === 'RPAREN') {
+                        while (opStack.length > 0 && opStack[opStack.length - 1].type !== 'LPAREN') {
+                            output.push(opStack.pop());
+                        }
+                        if (opStack.length === 0) throw new Error('Mismatched parentheses');
+                        opStack.pop();
+                        if (opStack.length > 0 && opStack[opStack.length - 1].type === 'FUNC') {
+                            output.push(opStack.pop());
+                        }
+                    }
+                }
+
+                while (opStack.length > 0) {
+                    const top = opStack.pop();
+                    if (top.type === 'LPAREN' || top.type === 'RPAREN') throw new Error('Mismatched parentheses');
+                    output.push(top);
+                }
+
+                return output;
+            }
+
+            function evaluate(rpn) {
+                const stack = [];
+
+                for (const token of rpn) {
+                    if (token.type === 'NUMBER') {
+                        stack.push(token.value);
+                    } else if (token.type === 'OP') {
+                        if (stack.length < 2) throw new Error('Invalid expression');
+                        const b = stack.pop();
+                        const a = stack.pop();
+                        let result;
+                        switch (token.value) {
+                            case '+': result = a + b; break;
+                            case '-': result = a - b; break;
+                            case '*': result = a * b; break;
+                            case '/': if (b === 0) throw new Error('Cannot divide by zero'); result = a / b; break;
+                            case '%': if (b === 0) throw new Error('Cannot divide by zero'); result = a % b; break;
+                            case '^': result = Math.pow(a, b); break;
+                            default: throw new Error(`Unknown operator: ${token.value}`);
+                        }
+                        stack.push(result);
+                    } else if (token.type === 'FUNC') {
+                        if (stack.length < 1) throw new Error('Invalid expression');
+                        const a = stack.pop();
+                        let result;
+                        const arg = isDegreeMode ? toRadians(a) : a;
+                        switch (token.value) {
+                            case 'sin': result = Math.sin(arg); break;
+                            case 'cos': result = Math.cos(arg); break;
+                            case 'tan': result = Math.tan(arg); break;
+                            case 'asin':
+                                if (a < -1 || a > 1) throw new Error('Domain error');
+                                result = isDegreeMode ? toDegrees(Math.asin(a)) : Math.asin(a);
+                                break;
+                            case 'acos':
+                                if (a < -1 || a > 1) throw new Error('Domain error');
+                                result = isDegreeMode ? toDegrees(Math.acos(a)) : Math.acos(a);
+                                break;
+                            case 'atan': result = isDegreeMode ? toDegrees(Math.atan(a)) : Math.atan(a); break;
+                            case 'log':
+                                if (a <= 0) throw new Error('Domain error');
+                                result = Math.log10(a);
+                                break;
+                            case 'ln':
+                                if (a <= 0) throw new Error('Domain error');
+                                result = Math.log(a);
+                                break;
+                            case 'sqrt':
+                                if (a < 0) throw new Error('Domain error');
+                                result = Math.sqrt(a);
+                                break;
+                            case 'abs': result = Math.abs(a); break;
+                            default: throw new Error(`Unknown function: ${token.value}`);
+                        }
+                        stack.push(result);
+                    }
+                }
+
+                if (stack.length !== 1) throw new Error('Invalid expression');
+                const result = stack[0];
+                if (!isFinite(result)) throw new Error('Number too large');
+                return result;
+            }
+
+            function calculate(expr) {
+                const tokens = tokenize(expr);
+                const rpn = toRPN(tokens);
+                return evaluate(rpn);
+            }
+
+            function addToHistory(expr, result) {
+                history.unshift({ expr, result, time: Date.now() });
+                if (history.length > 50) history.pop();
+                localStorage.setItem('calcHistory', JSON.stringify(history));
+            }
+
+            return {
+                calculate, addToHistory, getHistory: () => history,
+                clearHistory: () => { history = []; localStorage.removeItem('calcHistory'); },
+                getLastAnswer: () => lastAnswer,
+                setLastAnswer: (v) => { lastAnswer = v; },
+                toggleDegRad: () => { isDegreeMode = !isDegreeMode; return isDegreeMode; },
+                isDegreeMode: () => isDegreeMode,
+            };
+        })();
+
+        const App = (() => {
+            const display = document.getElementById('display') || document.querySelector('.result');
+            const expressionEl = document.getElementById('expression');
+            const resultEl = document.getElementById('result');
+            const modeIndicator = document.getElementById('modeIndicator');
+            const historyList = document.getElementById('historyList');
+            const graphInput = document.getElementById('graphInput');
+            const graphCanvas = document.getElementById('graphCanvas');
+            const ctx = graphCanvas.getContext('2d');
+
+            let expression = '';
+            let graphZoom = 40;
+            let graphOffset = { x: 0, y: 0 };
+
+            function init() {
+                setupTheme();
+                setupButtons();
+                setupKeyboard();
+                setupGraph();
+                renderHistory();
+                plotFunction();
+            }
+
+            function setupTheme() {
+                const saved = localStorage.getItem('calcTheme') || 'light';
+                document.documentElement.dataset.theme = saved;
+                document.querySelectorAll('.theme-btn').forEach(btn => {
+                    btn.classList.toggle('active', btn.dataset.theme === saved);
+                });
+
+                document.querySelectorAll('.theme-btn').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        document.documentElement.dataset.theme = btn.dataset.theme;
+                        localStorage.setItem('calcTheme', btn.dataset.theme);
+                        document.querySelectorAll('.theme-btn').forEach(b => b.classList.remove('active'));
+                        btn.classList.add('active');
+                    });
+                });
+            }
+
+            function setupButtons() {
+                document.querySelectorAll('button[data-action]').forEach(btn => {
+                    btn.addEventListener('click', handleButton);
+                    btn.addEventListener('touchend', (e) => {
+                        const now = Date.now();
+                        if (now - lastTouchEnd < TOUCH_GRACE_MS) {
+                            e.preventDefault();
+                        }
+                        lastTouchEnd = now;
+                    });
+                });
+            }
+
+            function handleButton(e) {
+                const action = e.target.dataset.action;
+                const value = e.target.dataset.value;
+
+                switch (action) {
+                    case 'num':
+                        expression += value;
+                        break;
+                    case 'op':
+                        if (value && expression === '' && value !== '-') {
+                            expression = Calc.getLastAnswer() + value;
+                        } else {
+                            expression += value;
+                        }
+                        break;
+                    case 'func':
+                        if (value === 'sqrt') {
+                            expression += 'sqrt(';
+                        } else if (value === '^') {
+                            expression += '^';
+                        } else {
+                            expression += value + '(';
+                        }
+                        break;
+                    case 'calculate':
+                        try {
+                            const result = Calc.calculate(expression);
+                            Calc.setLastAnswer(result);
+                            Calc.addToHistory(expression, result);
+                            renderHistory();
+                            resultEl.textContent = formatNumber(result);
+                            expressionEl.textContent = expression + ' =';
+                            expression = '';
+                        } catch (err) {
+                            resultEl.textContent = err.message;
+                            resultEl.classList.add('error');
+                            setTimeout(() => resultEl.classList.remove('error'), 2000);
+                        }
+                        return;
+                    case 'clear':
+                        expression = '';
+                        expressionEl.textContent = '';
+                        resultEl.textContent = '0';
+                        break;
+                    case 'backspace':
+                        expression = expression.slice(0, -1);
+                        break;
+                    case 'bracket':
+                        const open = (expression.match(/[(]/g) || []).length;
+                        const close = (expression.match(/[)]/g) || []).length;
+                        expression += open > close ? ')' : '(';
+                        break;
+                    case 'degRad':
+                        const isDeg = Calc.toggleDegRad();
+                        modeIndicator.textContent = isDeg ? 'DEG' : 'RAD';
+                        break;
+                    case 'ans':
+                        expression += Calc.getLastAnswer();
+                        break;
+                    case 'pi':
+                        expression += 'pi';
+                        break;
+                    case 'e':
+                        expression += 'e';
+                        break;
+                    case 'plot':
+                        graphInput.focus();
+                        graphInput.select();
+                        break;
+                    case 'history':
+                        document.getElementById('historyPanel').scrollIntoView({ behavior: 'smooth' });
+                        break;
+                    case 'clearHistory':
+                        Calc.clearHistory();
+                        renderHistory();
+                        return;
+                }
+
+                expressionEl.textContent = expression;
+                resultEl.textContent = expression === '' ? '0' : formatNumber(tryPreview());
+            }
+
+            function tryPreview() {
+                try {
+                    return Calc.calculate(expression);
+                } catch {
+                    return '';
+                }
+            }
+
+            function formatNumber(n) {
+                if (n === '') return '';
+                if (typeof n !== 'number') return n;
+                if (!isFinite(n)) return 'Error';
+                const str = n.toPrecision(10);
+                return parseFloat(str).toString();
+            }
+
+            function renderHistory() {
+                const hist = Calc.getHistory();
+                historyList.innerHTML = hist.map((h, i) => `
+                    <div class="history-item" data-expr="${escapeHtml(h.expr)}" data-result="${h.result}">
+                        <div class="expr">${escapeHtml(h.expr)}</div>
+                        <div class="res">= ${escapeHtml(formatNumber(h.result))}</div>
+                    </div>
+                `).join('');
+
+                historyList.querySelectorAll('.history-item').forEach(item => {
+                    item.addEventListener('click', () => {
+                        expression = item.dataset.expr;
+                        expressionEl.textContent = expression;
+                        resultEl.textContent = formatNumber(item.dataset.result);
+                    });
+                });
+            }
+
+            function escapeHtml(str) {
+                const div = document.createElement('div');
+                div.textContent = str;
+                return div.innerHTML;
+            }
+
+            function setupKeyboard() {
+                document.addEventListener('keydown', (e) => {
+                    if (e.target.tagName === 'INPUT') return;
+
+                    const key = e.key;
+                    if (/^[0-9.]$/.test(key)) {
+                        expression += key;
+                    } else if (['+', '-', '*', '/', '^', '%'].includes(key)) {
+                        expression += key;
+                    } else if (key === '(' || key === ')') {
+                        expression += key;
+                    } else if (key === 'Enter' || key === '=') {
+                        e.preventDefault();
+                        document.querySelector('[data-action="calculate"]')?.click();
+                    } else if (key === 'Backspace') {
+                        expression = expression.slice(0, -1);
+                    } else if (key === 'Escape' || key.toLowerCase() === 'c') {
+                        expression = '';
+                        expressionEl.textContent = '';
+                        resultEl.textContent = '0';
+                    } else if (key.toLowerCase() === 'h') {
+                        document.getElementById('historyPanel').scrollIntoView({ behavior: 'smooth' });
+                    } else if (key.toLowerCase() === 'p') {
+                        graphInput.focus();
+                    } else if (key.toLowerCase() === 't') {
+                        cycleTheme();
+                    }
+
+                    expressionEl.textContent = expression;
+                    if (expression !== '') {
+                        const preview = tryPreview();
+                        resultEl.textContent = preview !== '' ? formatNumber(preview) : '0';
+                    }
+                });
+            }
+
+            function cycleTheme() {
+                const themes = ['light', 'dark', 'retro'];
+                const current = localStorage.getItem('calcTheme') || 'light';
+                const next = themes[(themes.indexOf(current) + 1) % themes.length];
+                document.documentElement.dataset.theme = next;
+                localStorage.setItem('calcTheme', next);
+                document.querySelectorAll('.theme-btn').forEach(btn => {
+                    btn.classList.toggle('active', btn.dataset.theme === next);
+                });
+            }
+
+            function setupGraph() {
+                resizeCanvas();
+                window.addEventListener('resize', () => { resizeCanvas(); plotFunction(); });
+
+                document.getElementById('plotBtn').addEventListener('click', plotFunction);
+                document.getElementById('zoomIn').addEventListener('click', () => { graphZoom *= 1.3; plotFunction(); });
+                document.getElementById('zoomOut').addEventListener('click', () => { graphZoom /= 1.3; plotFunction(); });
+                document.getElementById('resetZoom').addEventListener('click', () => { graphZoom = 40; graphOffset = { x: 0, y: 0 }; plotFunction(); });
+
+                graphCanvas.addEventListener('wheel', (e) => {
+                    e.preventDefault();
+                    graphZoom *= e.deltaY > 0 ? 0.9 : 1.1;
+                    plotFunction();
+                });
+            }
+
+            function resizeCanvas() {
+                const rect = graphCanvas.getBoundingClientRect();
+                const dpr = window.devicePixelRatio || 1;
+                graphCanvas.width = rect.width * dpr;
+                graphCanvas.height = rect.height * dpr;
+                ctx.scale(dpr, dpr);
+            }
+
+            function plotFunction() {
+                const expr = graphInput.value.replace(/\s+/g, '');
+                let funcExpr = expr;
+
+                if (expr.startsWith('y=') || expr.startsWith('f(x)=')) {
+                    funcExpr = expr.split('=').slice(1).join('=');
+                }
+
+                const w = graphCanvas.width / (window.devicePixelRatio || 1);
+                const h = graphCanvas.height / (window.devicePixelRatio || 1);
+
+                ctx.clearRect(0, 0, w, h);
+
+                const styles = getComputedStyle(document.documentElement);
+                ctx.fillStyle = styles.getPropertyValue('--graph-bg').trim() || '#fff';
+                ctx.fillRect(0, 0, w, h);
+
+                const gridColor = styles.getPropertyValue('--graph-grid').trim() || '#e0e0e0';
+                const axisColor = styles.getPropertyValue('--graph-axis').trim() || '#444';
+                const curveColor = styles.getPropertyValue('--graph-curve').trim() || '#e74c3c';
+
+                ctx.strokeStyle = gridColor;
+                ctx.lineWidth = 1;
+
+                const cx = w / 2 + graphOffset.x;
+                const cy = h / 2 + graphOffset.y;
+
+                for (let x = 0; x < w; x += graphZoom) {
+                    ctx.beginPath();
+                    ctx.moveTo(x, 0);
+                    ctx.lineTo(x, h);
+                    ctx.stroke();
+                }
+                for (let y = 0; y < h; y += graphZoom) {
+                    ctx.beginPath();
+                    ctx.moveTo(0, y);
+                    ctx.lineTo(w, y);
+                    ctx.stroke();
+                }
+
+                ctx.strokeStyle = axisColor;
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(0, cy);
+                ctx.lineTo(w, cy);
+                ctx.moveTo(cx, 0);
+                ctx.lineTo(cx, h);
+                ctx.stroke();
+
+                const arrowSize = 8;
+                ctx.beginPath();
+                ctx.moveTo(w - 10, cy);
+                ctx.lineTo(w - 10 - arrowSize, cy - arrowSize / 2);
+                ctx.lineTo(w - 10 - arrowSize, cy + arrowSize / 2);
+                ctx.fillStyle = axisColor;
+                ctx.fill();
+                ctx.beginPath();
+                ctx.moveTo(cx, 10);
+                ctx.lineTo(cx - arrowSize / 2, 10 + arrowSize);
+                ctx.lineTo(cx + arrowSize / 2, 10 + arrowSize);
+                ctx.fill();
+
+                ctx.strokeStyle = curveColor;
+                ctx.lineWidth = 2.5;
+                ctx.beginPath();
+
+                let started = false;
+                const xMin = (-cx) / graphZoom;
+                const xMax = (w - cx) / graphZoom;
+                const step = (xMax - xMin) / w * 2;
+
+                for (let px = 0; px < w; px++) {
+                    const x = (px - cx) / graphZoom;
+                    let y;
+                    try {
+                        const tokens = tokenizeFunc(funcExpr, x);
+                        const rpn = toRPNFunc(tokens);
+                        y = evaluateFunc(rpn);
+                    } catch {
+                        started = false;
+                        continue;
+                    }
+
+                    if (!isFinite(y) || Math.abs(y) > h / graphZoom * 10) {
+                        started = false;
+                        continue;
+                    }
+
+                    const screenY = cy - y * graphZoom;
+                    if (!started) {
+                        ctx.moveTo(px, screenY);
+                        started = true;
+                    } else {
+                        ctx.lineTo(px, screenY);
+                    }
+                }
+                ctx.stroke();
+
+                ctx.fillStyle = styles.getPropertyValue('--text-secondary').trim() || '#666';
+                ctx.font = '12px JetBrains Mono, monospace';
+                ctx.fillText('x', w - 15, cy - 8);
+                ctx.fillText('y', cx + 10, 18);
+            }
+
+            function tokenizeFunc(expr, xVal) {
+                const tokens = [];
+                let i = 0;
+
+                while (i < expr.length) {
+                    if (expr[i] === 'x') {
+                        tokens.push({ type: 'NUMBER', value: xVal });
+                        i++;
+                    } else if (/[0-9.]/.test(expr[i])) {
+                        let num = '';
+                        while (i < expr.length && /[0-9.eE+-]/.test(expr[i])) {
+                            if ((expr[i] === 'e' || expr[i] === 'E') && i + 1 < expr.length && /[+-]/.test(expr[i + 1])) {
+                                num += expr[i++] + expr[i++];
+                                while (i < expr.length && /[0-9]/.test(expr[i])) num += expr[i++];
+                            } else if (expr[i] === '.' || /[0-9]/.test(expr[i])) {
+                                num += expr[i++];
+                            } else break;
+                        }
+                        if (num) tokens.push({ type: 'NUMBER', value: parseFloat(num) });
+                    } else if ('sin cose tan log ln sqrt abs asin acos atan'.includes(expr.slice(i, i + 3))) {
+                        let func = '';
+                        for (const f of ['asin', 'acos', 'atan', 'sin', 'cos', 'tan', 'log', 'ln', 'sqrt', 'abs']) {
+                            if (expr.slice(i).startsWith(f)) { func = f; break; }
+                        }
+                        tokens.push({ type: 'FUNC', value: func });
+                        i += func.length;
+                    } else if ('+-*/^'.includes(expr[i])) {
+                        if (expr[i] === '-' && (tokens.length === 0 || ['LPAREN', 'OP', 'FUNC'].includes(tokens[tokens.length - 1]?.type))) {
+                            tokens.push({ type: 'NUMBER', value: 0 });
+                        }
+                        tokens.push({ type: 'OP', value: expr[i] });
+                        i++;
+                    } else if (expr[i] === '(') {
+                        tokens.push({ type: 'LPAREN', value: '(' });
+                        i++;
+                    } else if (expr[i] === ')') {
+                        tokens.push({ type: 'RPAREN', value: ')' });
+                        i++;
+                    } else if (expr[i] === 'p' && expr.slice(i, i + 2) === 'pi') {
+                        tokens.push({ type: 'NUMBER', value: Math.PI });
+                        i += 2;
+                    } else if (expr[i] === 'e' && (i === 0 || !/[a-zA-Z]/.test(expr[i-1]))) {
+                        tokens.push({ type: 'NUMBER', value: Math.E });
+                        i++;
+                    } else {
+                        i++;
+                    }
+                }
+                return tokens;
+            }
+
+            const precedenceFunc = { '+': 1, '-': 1, '*': 2, '/': 2, '^': 3 };
+            const rightAssocFunc = ['^'];
+
+            function toRPNFunc(tokens) {
+                const output = [];
+                const opStack = [];
+
+                for (const token of tokens) {
+                    if (token.type === 'NUMBER') {
+                        output.push(token);
+                    } else if (token.type === 'FUNC') {
+                        opStack.push(token);
+                    } else if (token.type === 'OP') {
+                        while (opStack.length > 0) {
+                            const top = opStack[opStack.length - 1];
+                            if (top.type === 'FUNC') break;
+                            if ((precedenceFunc[top.value] || 0) > precedenceFunc[token.value]) break;
+                            if ((precedenceFunc[top.value] || 0) === precedenceFunc[token.value] && !rightAssocFunc.includes(token.value)) break;
+                            output.push(opStack.pop());
+                        }
+                        opStack.push(token);
+                    } else if (token.type === 'LPAREN') {
+                        opStack.push(token);
+                    } else if (token.type === 'RPAREN') {
+                        while (opStack.length > 0 && opStack[opStack.length - 1].type !== 'LPAREN') {
+                            output.push(opStack.pop());
+                        }
+                        if (opStack.length > 0) opStack.pop();
+                        if (opStack.length > 0 && opStack[opStack.length - 1].type === 'FUNC') {
+                            output.push(opStack.pop());
+                        }
+                    }
+                }
+                while (opStack.length > 0) output.push(opStack.pop());
+                return output;
+            }
+
+            function evaluateFunc(rpn) {
+                const stack = [];
+
+                for (const token of rpn) {
+                    if (token.type === 'NUMBER') {
+                        stack.push(token.value);
+                    } else if (token.type === 'OP') {
+                        const b = stack.pop();
+                        const a = stack.pop();
+                        switch (token.value) {
+                            case '+': stack.push(a + b); break;
+                            case '-': stack.push(a - b); break;
+                            case '*': stack.push(a * b); break;
+                            case '/': stack.push(a / b); break;
+                            case '^': stack.push(Math.pow(a, b)); break;
+                        }
+                    } else if (token.type === 'FUNC') {
+                        const a = stack.pop();
+                        switch (token.value) {
+                            case 'sin': stack.push(Math.sin(a)); break;
+                            case 'cos': stack.push(Math.cos(a)); break;
+                            case 'tan': stack.push(Math.tan(a)); break;
+                            case 'log': stack.push(Math.log10(a)); break;
+                            case 'ln': stack.push(Math.log(a)); break;
+                            case 'sqrt': stack.push(Math.sqrt(a)); break;
+                            case 'abs': stack.push(Math.abs(a)); break;
+                            case 'asin': stack.push(Math.asin(a)); break;
+                            case 'acos': stack.push(Math.acos(a)); break;
+                            case 'atan': stack.push(Math.atan(a)); break;
+                        }
+                    }
+                }
+                return stack[0];
+            }
+
+            return { init };
+        })();
+
+        document.addEventListener('DOMContentLoaded', () => {
+            App.init();
+        });
+    </script>
+</body>
+</html>
