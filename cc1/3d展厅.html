@@ -1,0 +1,836 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D线上展厅系统</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            overflow: hidden;
+            background: #000;
+        }
+
+        #canvas-container {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+        }
+
+        /* 加载界面 */
+        #loading {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #000;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: #fff;
+            z-index: 1000;
+            transition: opacity 0.5s;
+        }
+
+        .loading-text {
+            font-size: 24px;
+            margin-bottom: 20px;
+        }
+
+        .loading-bar {
+            width: 300px;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .loading-progress {
+            height: 100%;
+            background: linear-gradient(90deg, #00d4ff, #090979);
+            width: 0%;
+            transition: width 0.3s;
+        }
+
+        /* 控制提示 */
+        #controls {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.7);
+            color: #fff;
+            padding: 15px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            line-height: 1.6;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        /* 展品详情面板 */
+        #exhibit-detail {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(255, 255, 255, 0.95);
+            padding: 30px;
+            border-radius: 12px;
+            max-width: 500px;
+            width: 90%;
+            display: none;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            z-index: 100;
+        }
+
+        #exhibit-detail.active {
+            display: block;
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translate(-50%, -50%) scale(0.9);
+            }
+            to {
+                opacity: 1;
+                transform: translate(-50%, -50%) scale(1);
+            }
+        }
+
+        .detail-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .detail-title {
+            font-size: 24px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .close-btn {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: #f0f0f0;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+
+        .close-btn:hover {
+            background: #e0e0e0;
+            transform: scale(1.1);
+        }
+
+        .close-btn::before,
+        .close-btn::after {
+            content: '';
+            position: absolute;
+            width: 16px;
+            height: 2px;
+            background: #666;
+        }
+
+        .close-btn::before {
+            transform: rotate(45deg);
+        }
+
+        .close-btn::after {
+            transform: rotate(-45deg);
+        }
+
+        .exhibit-image {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .exhibit-info {
+            color: #666;
+            line-height: 1.6;
+        }
+
+        .exhibit-info h3 {
+            font-size: 18px;
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .exhibit-info p {
+            margin-bottom: 10px;
+        }
+
+        /* 旋转控制按钮 */
+        .rotation-controls {
+            position: absolute;
+            bottom: 100px;
+            right: 20px;
+            display: none;
+            flex-direction: column;
+            gap: 10px;
+            z-index: 50;
+        }
+
+        .rotation-controls.active {
+            display: flex;
+        }
+
+        .rotation-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.9);
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            font-size: 18px;
+        }
+
+        .rotation-btn:hover {
+            background: #fff;
+            transform: scale(1.1);
+        }
+
+        /* 小地图 */
+        #minimap {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 200px;
+            height: 200px;
+            background: rgba(0, 0, 0, 0.8);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 8px;
+            z-index: 50;
+        }
+
+        /* UI状态 */
+        .ui-hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+    <div id="canvas-container"></div>
+
+    <!-- 加载界面 -->
+    <div id="loading">
+        <div class="loading-text">加载3D展厅中...</div>
+        <div class="loading-bar">
+            <div class="loading-progress"></div>
+        </div>
+    </div>
+
+    <!-- 控制提示 -->
+    <div id="controls">
+        <div><strong>操作说明：</strong></div>
+        <div>WASD / 方向键 - 移动</div>
+        <div>鼠标 - 转向</div>
+        <div>鼠标滚轮 - 缩放</div>
+        <div>点击展品 - 查看详情</div>
+    </div>
+
+    <!-- 展品详情面板 -->
+    <div id="exhibit-detail">
+        <div class="detail-header">
+            <h2 class="detail-title" id="exhibit-title">展品名称</h2>
+            <button class="close-btn" onclick="closeExhibitDetail()"></button>
+        </div>
+        <img class="exhibit-image" id="exhibit-image" src="" alt="">
+        <div class="exhibit-info">
+            <h3>详细信息</h3>
+            <p id="exhibit-description">展品描述信息</p>
+        </div>
+    </div>
+
+    <!-- 旋转控制按钮 -->
+    <div class="rotation-controls" id="rotation-controls">
+        <button class="rotation-btn" onclick="rotateExhibit('left')">←</button>
+        <button class="rotation-btn" onclick="rotateExhibit('up')">↑</button>
+        <button class="rotation-btn" onclick="rotateExhibit('down')">↓</button>
+        <button class="rotation-btn" onclick="rotateExhibit('right')">→</button>
+    </div>
+
+    <!-- 小地图 -->
+    <div id="minimap"></div>
+
+    <!-- Three.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        // 全局变量
+        let scene, camera, renderer;
+        let controls;
+        let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false;
+        let prevTime = performance.now();
+        let raycaster, mouse;
+        let exhibits = [];
+        let selectedExhibit = null;
+        let rotatingExhibit = null;
+        let velocity = new THREE.Vector3();
+        let direction = new THREE.Vector3();
+        let collisionObjects = [];
+        let exhibitRotations = new Map();
+
+        // 展品数据
+        const exhibitData = [
+            {
+                id: 1,
+                name: "现代艺术雕塑",
+                description: "这是一件现代艺术雕塑作品，由著名艺术家创作，展现了当代艺术的独特魅力。作品采用了创新的设计理念，融合了传统与现代的艺术元素。",
+                image: "https://picsum.photos/seed/art1/400/300.jpg",
+                position: { x: -10, y: 1, z: -5 },
+                rotation: { x: 0, y: 0, z: 0 },
+                scale: 1
+            },
+            {
+                id: 2,
+                name: "古典油画",
+                description: "19世纪的古典油画作品，描绘了美丽的风景和人物。这幅画作展现了艺术家精湛的技巧和对光影的独特理解。",
+                image: "https://picsum.photos/seed/painting1/400/300.jpg",
+                position: { x: 10, y: 2, z: -5 },
+                rotation: { x: 0, y: 0, z: 0 },
+                scale: 1
+            },
+            {
+                id: 3,
+                name: "古代文物",
+                description: "出土于古代遗址的珍贵文物，距今已有上千年的历史。这件文物见证了古代文明的辉煌，具有极高的历史价值。",
+                image: "https://picsum.photos/seed/artifact1/400/300.jpg",
+                position: { x: 0, y: 0.5, z: -15 },
+                rotation: { x: 0, y: 0, z: 0 },
+                scale: 1
+            },
+            {
+                id: 4,
+                name: "工业设计",
+                description: "现代工业设计的杰作，结合了功能性与美学。这件作品展示了设计师对材料、形态和空间的完美把控。",
+                image: "https://picsum.photos/seed/industrial1/400/300.jpg",
+                position: { x: -10, y: 1, z: 10 },
+                rotation: { x: 0, y: 0, z: 0 },
+                scale: 1
+            }
+        ];
+
+        // 初始化场景
+        function init() {
+            // 创建场景
+            scene = new THREE.Scene();
+            scene.fog = new THREE.Fog(0x000000, 10, 100);
+
+            // 创建相机
+            camera = new THREE.PerspectiveCamera(
+                75,
+                window.innerWidth / window.innerHeight,
+                0.1,
+                1000
+            );
+            camera.position.set(0, 1.6, 10);
+
+            // 创建渲染器
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+            // 添加灯光
+            setupLights();
+
+            // 创建展厅
+            createGallery();
+
+            // 创建展品
+            createExhibits();
+
+            // 初始化射线检测
+            raycaster = new THREE.Raycaster();
+            mouse = new THREE.Vector2();
+
+            // 添加事件监听
+            setupEventListeners();
+
+            // 隐藏加载界面
+            setTimeout(() => {
+                document.getElementById('loading').style.opacity = '0';
+                setTimeout(() => {
+                    document.getElementById('loading').style.display = 'none';
+                }, 500);
+            }, 1000);
+        }
+
+        // 设置灯光
+        function setupLights() {
+            // 环境光
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+            scene.add(ambientLight);
+
+            // 主光源
+            const mainLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            mainLight.position.set(10, 20, 10);
+            mainLight.castShadow = true;
+            mainLight.shadow.camera.left = -50;
+            mainLight.shadow.camera.right = 50;
+            mainLight.shadow.camera.top = 50;
+            mainLight.shadow.camera.bottom = -50;
+            mainLight.shadow.mapSize.width = 2048;
+            mainLight.shadow.mapSize.height = 2048;
+            scene.add(mainLight);
+
+            // 展柜聚光灯
+            const spotLight1 = new THREE.SpotLight(0xffffff, 1, 20, Math.PI / 6, 0.5, 2);
+            spotLight1.position.set(-5, 5, 0);
+            spotLight1.target.position.set(-5, 1, 0);
+            spotLight1.castShadow = true;
+            scene.add(spotLight1);
+            scene.add(spotLight1.target);
+
+            const spotLight2 = new THREE.SpotLight(0xffffff, 1, 20, Math.PI / 6, 0.5, 2);
+            spotLight2.position.set(5, 5, 0);
+            spotLight2.target.position.set(5, 1, 0);
+            spotLight2.castShadow = true;
+            scene.add(spotLight2);
+            scene.add(spotLight2.target);
+
+            // 添加点光源增加氛围
+            const pointLight1 = new THREE.PointLight(0x00d4ff, 0.5, 30);
+            pointLight1.position.set(-15, 3, -10);
+            scene.add(pointLight1);
+
+            const pointLight2 = new THREE.PointLight(0xff00ff, 0.5, 30);
+            pointLight2.position.set(15, 3, 10);
+            scene.add(pointLight2);
+        }
+
+        // 创建展厅
+        function createGallery() {
+            // 地板
+            const floorGeometry = new THREE.PlaneGeometry(50, 50);
+            const floorMaterial = new THREE.MeshStandardMaterial({
+                color: 0x1a1a1a,
+                roughness: 0.8,
+                metalness: 0.2
+            });
+            const floor = new THREE.Mesh(floorGeometry, floorMaterial);
+            floor.rotation.x = -Math.PI / 2;
+            floor.receiveShadow = true;
+            scene.add(floor);
+            collisionObjects.push(floor);
+
+            // 天花板
+            const ceilingGeometry = new THREE.PlaneGeometry(50, 50);
+            const ceilingMaterial = new THREE.MeshStandardMaterial({
+                color: 0x2a2a2a,
+                roughness: 0.9,
+                metalness: 0.1
+            });
+            const ceiling = new THREE.Mesh(ceilingGeometry, ceilingMaterial);
+            ceiling.rotation.x = Math.PI / 2;
+            ceiling.position.y = 8;
+            scene.add(ceiling);
+
+            // 墙壁
+            const wallMaterial = new THREE.MeshStandardMaterial({
+                color: 0xf0f0f0,
+                roughness: 0.7,
+                metalness: 0.1
+            });
+
+            // 后墙
+            const backWallGeometry = new THREE.PlaneGeometry(50, 8);
+            const backWall = new THREE.Mesh(backWallGeometry, wallMaterial);
+            backWall.position.z = -25;
+            backWall.receiveShadow = true;
+            scene.add(backWall);
+            collisionObjects.push(backWall);
+
+            // 左墙
+            const leftWallGeometry = new THREE.PlaneGeometry(50, 8);
+            const leftWall = new THREE.Mesh(leftWallGeometry, wallMaterial);
+            leftWall.rotation.y = Math.PI / 2;
+            leftWall.position.x = -25;
+            leftWall.receiveShadow = true;
+            scene.add(leftWall);
+            collisionObjects.push(leftWall);
+
+            // 右墙
+            const rightWall = new THREE.Mesh(leftWallGeometry, wallMaterial);
+            rightWall.rotation.y = -Math.PI / 2;
+            rightWall.position.x = 25;
+            rightWall.receiveShadow = true;
+            scene.add(rightWall);
+            collisionObjects.push(rightWall);
+
+            // 装饰柱子
+            const pillarGeometry = new THREE.CylinderGeometry(0.5, 0.5, 8, 8);
+            const pillarMaterial = new THREE.MeshStandardMaterial({
+                color: 0x888888,
+                roughness: 0.5,
+                metalness: 0.5
+            });
+
+            for (let i = -1; i <= 1; i++) {
+                for (let j = -1; j <= 1; j++) {
+                    if (i === 0 && j === 0) continue;
+
+                    const pillar = new THREE.Mesh(pillarGeometry, pillarMaterial);
+                    pillar.position.set(i * 15, 4, j * 15);
+                    pillar.castShadow = true;
+                    pillar.receiveShadow = true;
+                    scene.add(pillar);
+                    collisionObjects.push(pillar);
+                }
+            }
+        }
+
+        // 创建展品
+        function createExhibits() {
+            exhibitData.forEach((data, index) => {
+                // 创建展柜底座
+                const caseGeometry = new THREE.BoxGeometry(4, 0.5, 4);
+                const caseMaterial = new THREE.MeshStandardMaterial({
+                    color: 0xcccccc,
+                    roughness: 0.3,
+                    metalness: 0.7
+                });
+                const caseBase = new THREE.Mesh(caseGeometry, caseMaterial);
+                caseBase.position.set(
+                    data.position.x,
+                    data.position.y - 0.25,
+                    data.position.z
+                );
+                caseBase.castShadow = true;
+                caseBase.receiveShadow = true;
+                scene.add(caseBase);
+                collisionObjects.push(caseBase);
+
+                // 创建展柜玻璃
+                const glassGeometry = new THREE.BoxGeometry(3.9, 2, 3.9);
+                const glassMaterial = new THREE.MeshPhysicalMaterial({
+                    color: 0xffffff,
+                    transparent: true,
+                    opacity: 0.1,
+                    roughness: 0.1,
+                    metalness: 0.1,
+                    transmission: 0.9,
+                    thickness: 0.1
+                });
+                const caseGlass = new THREE.Mesh(glassGeometry, glassMaterial);
+                caseGlass.position.set(
+                    data.position.x,
+                    data.position.y + 0.75,
+                    data.position.z
+                );
+                scene.add(caseGlass);
+
+                // 创建展品（使用立方体代替，实际项目中可加载GLB模型）
+                const exhibitGeometry = new THREE.BoxGeometry(1.5, 1.5, 1.5);
+                const exhibitMaterial = new THREE.MeshStandardMaterial({
+                    color: new THREE.Color().setHSL(index * 0.2, 0.7, 0.5),
+                    roughness: 0.3,
+                    metalness: 0.5
+                });
+                const exhibit = new THREE.Mesh(exhibitGeometry, exhibitMaterial);
+                exhibit.position.set(
+                    data.position.x,
+                    data.position.y + 1,
+                    data.position.z
+                );
+                exhibit.castShadow = true;
+                exhibit.receiveShadow = true;
+                exhibit.userData = data;
+                exhibitRotations.set(exhibit, { x: 0, y: 0 });
+                scene.add(exhibit);
+                exhibits.push(exhibit);
+            });
+        }
+
+        // 设置事件监听
+        function setupEventListeners() {
+            // 键盘事件
+            document.addEventListener('keydown', onKeyDown);
+            document.addEventListener('keyup', onKeyUp);
+
+            // 鼠标事件
+            document.addEventListener('mousemove', onMouseMove);
+            document.addEventListener('click', onMouseClick);
+            document.addEventListener('wheel', onMouseWheel);
+
+            // 窗口大小改变
+            window.addEventListener('resize', onWindowResize);
+        }
+
+        // 键盘按下
+        function onKeyDown(event) {
+            switch (event.code) {
+                case 'ArrowUp':
+                case 'KeyW':
+                    moveForward = true;
+                    break;
+                case 'ArrowLeft':
+                case 'KeyA':
+                    moveLeft = true;
+                    break;
+                case 'ArrowDown':
+                case 'KeyS':
+                    moveBackward = true;
+                    break;
+                case 'ArrowRight':
+                case 'KeyD':
+                    moveRight = true;
+                    break;
+            }
+        }
+
+        // 键盘抬起
+        function onKeyUp(event) {
+            switch (event.code) {
+                case 'ArrowUp':
+                case 'KeyW':
+                    moveForward = false;
+                    break;
+                case 'ArrowLeft':
+                case 'KeyA':
+                    moveLeft = false;
+                    break;
+                case 'ArrowDown':
+                case 'KeyS':
+                    moveBackward = false;
+                    break;
+                case 'ArrowRight':
+                case 'KeyD':
+                    moveRight = false;
+                    break;
+            }
+        }
+
+        // 鼠标移动
+        function onMouseMove(event) {
+            if (document.pointerLockElement === renderer.domElement) {
+                const movementX = event.movementX || 0;
+                const movementY = event.movementY || 0;
+
+                camera.rotation.y -= movementX * 0.002;
+                camera.rotation.x -= movementY * 0.002;
+                camera.rotation.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, camera.rotation.x));
+            }
+        }
+
+        // 鼠标点击
+        function onMouseClick(event) {
+            // 将鼠标位置归一化为 -1 到 +1 的设备坐标
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+            // 更新射线
+            raycaster.setFromCamera(mouse, camera);
+
+            // 计算与展品的交点
+            const intersects = raycaster.intersectObjects(exhibits);
+
+            if (intersects.length > 0) {
+                const clickedExhibit = intersects[0].object;
+                showExhibitDetail(clickedExhibit.userData);
+
+                // 高亮效果
+                if (selectedExhibit) {
+                    selectedExhibit.material.emissive = new THREE.Color(0x000000);
+                }
+                selectedExhibit = clickedExhibit;
+                clickedExhibit.material.emissive = new THREE.Color(0x00ff00);
+                clickedExhibit.material.emissiveIntensity = 0.3;
+            }
+        }
+
+        // 鼠标滚轮
+        function onMouseWheel(event) {
+            const delta = event.deltaY * 0.01;
+            camera.fov += delta;
+            camera.fov = Math.max(30, Math.min(90, camera.fov));
+            camera.updateProjectionMatrix();
+        }
+
+        // 窗口大小改变
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        // 显示展品详情
+        function showExhibitDetail(data) {
+            document.getElementById('exhibit-title').textContent = data.name;
+            document.getElementById('exhibit-image').src = data.image;
+            document.getElementById('exhibit-description').textContent = data.description;
+            document.getElementById('exhibit-detail').classList.add('active');
+            document.getElementById('controls').classList.add('ui-hidden');
+
+            rotatingExhibit = exhibits.find(ex => ex.userData.id === data.id);
+            document.getElementById('rotation-controls').classList.add('active');
+
+            // 锁定指针
+            renderer.domElement.requestPointerLock();
+        }
+
+        // 关闭展品详情
+        function closeExhibitDetail() {
+            document.getElementById('exhibit-detail').classList.remove('active');
+            document.getElementById('controls').classList.remove('ui-hidden');
+            document.getElementById('rotation-controls').classList.remove('active');
+
+            // 取消高亮
+            if (selectedExhibit) {
+                selectedExhibit.material.emissive = new THREE.Color(0x000000);
+                selectedExhibit = null;
+            }
+
+            // 退出指针锁定
+            if (document.pointerLockElement === renderer.domElement) {
+                document.exitPointerLock();
+            }
+
+            rotatingExhibit = null;
+        }
+
+        // 旋转展品
+        function rotateExhibit(direction) {
+            if (!rotatingExhibit) return;
+
+            const rotationSpeed = 0.1;
+            const currentRotation = exhibitRotations.get(rotatingExhibit);
+
+            switch (direction) {
+                case 'left':
+                    currentRotation.y -= rotationSpeed;
+                    break;
+                case 'right':
+                    currentRotation.y += rotationSpeed;
+                    break;
+                case 'up':
+                    currentRotation.x -= rotationSpeed;
+                    break;
+                case 'down':
+                    currentRotation.x += rotationSpeed;
+                    break;
+            }
+
+            // 限制X轴旋转范围
+            currentRotation.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, currentRotation.x));
+
+            // 应用旋转
+            rotatingExhibit.rotation.x = currentRotation.x;
+            rotatingExhibit.rotation.y = currentRotation.y;
+
+            exhibitRotations.set(rotatingExhibit, currentRotation);
+        }
+
+        // 碰撞检测
+        function checkCollision(newPosition) {
+            const playerRadius = 0.5;
+            const playerHeight = 1.8;
+
+            for (let obj of collisionObjects) {
+                // 简化的球形碰撞检测
+                const distance = newPosition.distanceTo(obj.position);
+
+                if (obj.geometry instanceof THREE.PlaneGeometry) {
+                    // 地面碰撞
+                    if (newPosition.y < playerRadius) {
+                        return true;
+                    }
+                } else if (obj.geometry instanceof THREE.BoxGeometry) {
+                    // 物体碰撞
+                    const box = new THREE.Box3().setFromObject(obj);
+                    const playerBox = new THREE.Box3(
+                        new THREE.Vector3(newPosition.x - playerRadius, 0, newPosition.z - playerRadius),
+                        new THREE.Vector3(newPosition.x + playerRadius, playerHeight, newPosition.z + playerRadius)
+                    );
+
+                    if (box.intersectsBox(playerBox)) {
+                        return true;
+                    }
+                }
+            }
+
+            // 边界检测
+            if (Math.abs(newPosition.x) > 24 || Math.abs(newPosition.z) > 24) {
+                return true;
+            }
+
+            return false;
+        }
+
+        // 动画循环
+        function animate() {
+            requestAnimationFrame(animate);
+
+            const time = performance.now();
+            const delta = (time - prevTime) / 1000;
+
+            // 处理移动
+            velocity.x -= velocity.x * 10.0 * delta;
+            velocity.z -= velocity.z * 10.0 * delta;
+
+            direction.z = Number(moveForward) - Number(moveBackward);
+            direction.x = Number(moveRight) - Number(moveLeft);
+            direction.normalize();
+
+            if (moveForward || moveBackward) {
+                velocity.z -= direction.z * 20.0 * delta;
+            }
+            if (moveLeft || moveRight) {
+                velocity.x -= direction.x * 20.0 * delta;
+            }
+
+            // 计算新位置
+            const newPosition = new THREE.Vector3(
+                camera.position.x + velocity.x * delta,
+                camera.position.y,
+                camera.position.z + velocity.z * delta
+            );
+
+            // 碰撞检测
+            if (!checkCollision(newPosition)) {
+                camera.position.x = newPosition.x;
+                camera.position.z = newPosition.z;
+            }
+
+            // 展品自转动画
+            exhibits.forEach(exhibit => {
+                if (exhibit !== rotatingExhibit) {
+                    exhibit.rotation.y += 0.005;
+                }
+            });
+
+            renderer.render(scene, camera);
+            prevTime = time;
+        }
+
+        // 启动应用
+        init();
+        animate();
+    </script>
+</body>
+</html>
