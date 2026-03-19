@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Audio Visualizer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      background: linear-gradient(135deg, #0a0a0f 0%, #1a1a2e 50%, #0f0f1a 100%);
+      font-family: 'Orbitron', monospace;
+    }
+
+    #canvas {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    .drop-zone {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 10;
+      pointer-events: none;
+      transition: background 0.3s ease;
+    }
+
+    .drop-zone.active {
+      background: rgba(0, 245, 255, 0.05);
+    }
+
+    .drop-zone.active .upload-box {
+      border-color: #00f5ff;
+      box-shadow: 0 0 40px rgba(0, 245, 255, 0.3);
+    }
+
+    .upload-box {
+      width: 320px;
+      padding: 60px 40px;
+      border: 2px dashed rgba(255, 255, 255, 0.2);
+      border-radius: 20px;
+      text-align: center;
+      background: rgba(10, 10, 15, 0.8);
+      backdrop-filter: blur(10px);
+      transition: all 0.3s ease;
+    }
+
+    .upload-box svg {
+      width: 64px;
+      height: 64px;
+      margin-bottom: 20px;
+      opacity: 0.6;
+    }
+
+    .upload-box h2 {
+      color: #fff;
+      font-size: 16px;
+      font-weight: 400;
+      margin-bottom: 10px;
+      letter-spacing: 2px;
+    }
+
+    .upload-box p {
+      color: rgba(255, 255, 255, 0.4);
+      font-size: 12px;
+      letter-spacing: 1px;
+    }
+
+    #fileInput {
+      display: none;
+    }
+
+    .controls {
+      position: fixed;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 12px;
+      padding: 16px 24px;
+      background: rgba(10, 10, 15, 0.85);
+      backdrop-filter: blur(20px);
+      border-radius: 60px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      z-index: 100;
+      opacity: 0;
+      visibility: hidden;
+      transition: all 0.4s ease;
+    }
+
+    .controls.visible {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    .btn {
+      width: 48px;
+      height: 48px;
+      border: none;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.05);
+      color: rgba(255, 255, 255, 0.7);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s ease;
+    }
+
+    .btn:hover {
+      background: rgba(255, 255, 255, 0.12);
+      color: #fff;
+      transform: scale(1.08);
+    }
+
+    .btn.active {
+      background: rgba(0, 245, 255, 0.2);
+      color: #00f5ff;
+      box-shadow: 0 0 20px rgba(0, 245, 255, 0.3);
+    }
+
+    .btn svg {
+      width: 20px;
+      height: 20px;
+    }
+
+    .divider {
+      width: 1px;
+      height: 32px;
+      background: rgba(255, 255, 255, 0.1);
+      align-self: center;
+    }
+
+    .volume-container {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .volume-container svg {
+      width: 18px;
+      height: 18px;
+      color: rgba(255, 255, 255, 0.5);
+    }
+
+    .volume-slider {
+      width: 80px;
+      height: 4px;
+      -webkit-appearance: none;
+      appearance: none;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 2px;
+      outline: none;
+      cursor: pointer;
+    }
+
+    .volume-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #00f5ff;
+      cursor: pointer;
+      box-shadow: 0 0 10px rgba(0, 245, 255, 0.5);
+    }
+
+    .volume-slider::-moz-range-thumb {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #00f5ff;
+      cursor: pointer;
+      border: none;
+      box-shadow: 0 0 10px rgba(0, 245, 255, 0.5);
+    }
+
+    .track-info {
+      position: fixed;
+      top: 30px;
+      left: 50%;
+      transform: translateX(-50%);
+      color: rgba(255, 255, 255, 0.6);
+      font-size: 13px;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      z-index: 100;
+      opacity: 0;
+      transition: opacity 0.4s ease;
+    }
+
+    .track-info.visible {
+      opacity: 1;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 0.6; }
+      50% { opacity: 1; }
+    }
+
+    .playing .track-name {
+      animation: pulse 2s ease-in-out infinite;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="canvas"></canvas>
+
+  <div class="drop-zone" id="dropZone">
+    <div class="upload-box">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <path d="M9 18V5l12-2v13"/>
+        <circle cx="6" cy="18" r="3"/>
+        <circle cx="18" cy="16" r="3"/>
+      </svg>
+      <h2>Drop Audio Here</h2>
+      <p>or click to browse</p>
+    </div>
+  </div>
+
+  <input type="file" id="fileInput" accept="audio/*">
+
+  <div class="track-info" id="trackInfo">
+    <span class="track-name" id="trackName"></span>
+  </div>
+
+  <div class="controls" id="controls">
+    <button class="btn active" id="btnRing" title="Ring">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="8"/>
+        <circle cx="12" cy="12" r="4"/>
+      </svg>
+    </button>
+    <button class="btn" id="btnWave" title="Wave">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M2 12h2l2-6 3 12 3-8 2 4 2-2h6"/>
+      </svg>
+    </button>
+    <button class="btn" id="btnParticle" title="Particle Rain">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="6" cy="6" r="2"/>
+        <circle cx="18" cy="8" r="2"/>
+        <circle cx="12" cy="18" r="2"/>
+        <circle cx="4" cy="14" r="1.5"/>
+        <circle cx="20" cy="16" r="1.5"/>
+      </svg>
+    </button>
+
+    <div class="divider"></div>
+
+    <button class="btn" id="btnPlay" title="Play/Pause">
+      <svg viewBox="0 0 24 24" fill="currentColor" id="iconPlay">
+        <path d="M8 5v14l11-7z"/>
+      </svg>
+      <svg viewBox="0 0 24 24" fill="currentColor" id="iconPause" style="display:none">
+        <rect x="6" y="4" width="4" height="16"/>
+        <rect x="14" y="4" width="4" height="16"/>
+      </svg>
+    </button>
+
+    <div class="divider"></div>
+
+    <div class="volume-container">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+        <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+      </svg>
+      <input type="range" class="volume-slider" id="volumeSlider" min="0" max="1" step="0.01" value="0.8">
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('fileInput');
+    const controls = document.getElementById('controls');
+    const trackInfo = document.getElementById('trackInfo');
+    const trackName = document.getElementById('trackName');
+    const btnPlay = document.getElementById('btnPlay');
+    const iconPlay = document.getElementById('iconPlay');
+    const iconPause = document.getElementById('iconPause');
+    const volumeSlider = document.getElementById('volumeSlider');
+    const btnRing = document.getElementById('btnRing');
+    const btnWave = document.getElementById('btnWave');
+    const btnParticle = document.getElementById('btnParticle');
+
+    let audioContext, analyser, source, audio;
+    let dataArray, frequencyData;
+    let isPlaying = false;
+    let animationId;
+    let currentStyle = 'ring';
+    let particles = [];
+    let volume = 0.8;
+
+    const colors = {
+      primary: { r: 0, g: 245, b: 255 },
+      secondary: { r: 255, g: 0, b: 255 },
+      accent: { r: 0, g: 102, b: 255 }
+    };
+
+    function resize() {
+      canvas.width = window.innerWidth * devicePixelRatio;
+      canvas.height = window.innerHeight * devicePixelRatio;
+      canvas.style.width = window.innerWidth + 'px';
+      canvas.style.height = window.innerHeight + 'px';
+      ctx.scale(devicePixelRatio, devicePixelRatio);
+    }
+
+    window.addEventListener('resize', resize);
+    resize();
+
+    function initAudio() {
+      if (audioContext) return;
+      audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      analyser = audioContext.createAnalyser();
+      analyser.fftSize = 256;
+      analyser.smoothingTimeConstant = 0.8;
+      const bufferLength = analyser.frequencyBinCount;
+      dataArray = new Uint8Array(bufferLength);
+      frequencyData = new Uint8Array(bufferLength);
+    }
+
+    function loadAudio(file) {
+      initAudio();
+
+      if (audio) {
+        audio.pause();
+        audio.src = '';
+      }
+
+      audio = new Audio();
+      audio.src = URL.createObjectURL(file);
+      audio.crossOrigin = 'anonymous';
+
+      if (source) source.disconnect();
+      source = audioContext.createMediaElementSource(audio);
+      source.connect(analyser);
+      analyser.connect(audioContext.destination);
+
+      audio.volume = volume;
+
+      const name = file.name.replace(/\.[^/.]+$/, '');
+      trackName.textContent = name;
+      trackInfo.classList.add('visible');
+      controls.classList.add('visible');
+      dropZone.style.display = 'none';
+
+      audio.addEventListener('ended', () => {
+        isPlaying = false;
+        iconPlay.style.display = 'block';
+        iconPause.style.display = 'none';
+      });
+
+      playAudio();
+    }
+
+    function playAudio() {
+      if (!audio) return;
+      audioContext.resume();
+      audio.play();
+      isPlaying = true;
+      iconPlay.style.display = 'none';
+      iconPause.style.display = 'block';
+      trackInfo.classList.add('playing');
+      visualize();
+    }
+
+    function togglePlay() {
+      if (!audio) return;
+      if (isPlaying) {
+        audio.pause();
+        isPlaying = false;
+        iconPlay.style.display = 'block';
+        iconPause.style.display = 'none';
+        trackInfo.classList.remove('playing');
+      } else {
+        playAudio();
+      }
+    }
+
+    function getVolume() {
+      if (!analyser) return 0.5;
+      analyser.getByteFrequencyData(dataArray);
+      let sum = 0;
+      for (let i = 0; i < dataArray.length; i++) {
+        sum += dataArray[i];
+      }
+      return Math.max(0.3, Math.min(1, (sum / dataArray.length) / 200));
+    }
+
+    function drawRing() {
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      const cx = w / 2;
+      const cy = h / 2;
+      const radius = Math.min(w, h) * 0.28;
+      const bars = 64;
+      const vol = getVolume();
+
+      ctx.fillStyle = `rgba(10, 10, 15, 0.15)`;
+      ctx.fillRect(0, 0, w, h);
+
+      for (let i = 0; i < bars; i++) {
+        const freqIndex = Math.floor(i * frequencyData.length / bars);
+        const value = frequencyData[freqIndex] / 255;
+        const barHeight = value * 80 * vol;
+
+        const angle = (i / bars) * Math.PI * 2 - Math.PI / 2;
+        const innerR = radius;
+        const outerR = radius + barHeight;
+
+        const x1 = cx + Math.cos(angle) * innerR;
+        const y1 = cy + Math.sin(angle) * innerR;
+        const x2 = cx + Math.cos(angle) * outerR;
+        const y2 = cy + Math.sin(angle) * outerR;
+
+        const hue = (i / bars) * 60 + 180;
+        const brightness = 0.4 + vol * 0.6;
+
+        ctx.beginPath();
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x2, y2);
+        ctx.strokeStyle = `hsla(${hue}, 100%, ${50 * brightness}%, ${0.6 + value * 0.4})`;
+        ctx.lineWidth = 3;
+        ctx.lineCap = 'round';
+        ctx.shadowColor = `hsla(${hue}, 100%, 50%, 0.8)`;
+        ctx.shadowBlur = 15 * vol;
+        ctx.stroke();
+      }
+
+      ctx.shadowBlur = 0;
+
+      ctx.beginPath();
+      ctx.arc(cx, cy, 40, 0, Math.PI * 2);
+      ctx.strokeStyle = `rgba(255, 255, 255, ${0.1 + vol * 0.2})`;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+
+    function drawWave() {
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      const vol = getVolume();
+      const bars = 128;
+
+      ctx.fillStyle = `rgba(10, 10, 15, 0.12)`;
+      ctx.fillRect(0, 0, w, h);
+
+      const sliceWidth = w / bars;
+      const centerY = h / 2;
+
+      for (let i = 0; i < bars; i++) {
+        const freqIndex = Math.floor(i * frequencyData.length / bars);
+        const value = frequencyData[freqIndex] / 255;
+        const barHeight = value * h * 0.35 * vol;
+
+        const x = i * sliceWidth;
+        const hue = 180 + (i / bars) * 60;
+
+        const gradient = ctx.createLinearGradient(x, centerY - barHeight, x, centerY + barHeight);
+        gradient.addColorStop(0, `hsla(${hue}, 100%, 60%, ${0.3 + value * 0.7})`);
+        gradient.addColorStop(0.5, `hsla(${hue}, 100%, 50%, ${0.6 + value * 0.4})`);
+        gradient.addColorStop(1, `hsla(${hue}, 100%, 60%, ${0.3 + value * 0.7})`);
+
+        ctx.fillStyle = gradient;
+        ctx.shadowColor = `hsla(${hue}, 100%, 50%, 0.8)`;
+        ctx.shadowBlur = 10 * vol;
+        ctx.fillRect(x - 1, centerY - barHeight, sliceWidth + 1, barHeight * 2);
+      }
+
+      ctx.shadowBlur = 0;
+
+      ctx.beginPath();
+      ctx.moveTo(0, centerY);
+      for (let i = 0; i < bars; i++) {
+        const freqIndex = Math.floor(i * frequencyData.length / bars);
+        const value = frequencyData[freqIndex] / 255;
+        const y = centerY + (value - 0.5) * h * 0.3 * vol;
+        ctx.lineTo(i * sliceWidth, y);
+      }
+      ctx.strokeStyle = `rgba(255, 255, 255, ${0.2 + vol * 0.3})`;
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
+
+    function drawParticle() {
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      const vol = getVolume();
+
+      ctx.fillStyle = `rgba(10, 10, 15, 0.08)`;
+      ctx.fillRect(0, 0, w, h);
+
+      const bassValue = frequencyData.slice(0, 8).reduce((a, b) => a + b, 0) / 8 / 255;
+
+      if (Math.random() < 0.3 + bassValue * 0.5) {
+        const x = Math.random() * w;
+        particles.push({
+          x: x,
+          y: -10,
+          vx: (Math.random() - 0.5) * 2,
+          vy: 2 + Math.random() * 4 + bassValue * 6,
+          size: 1 + Math.random() * 3 + vol * 2,
+          life: 1,
+          hue: Math.random() > 0.5 ? 180 : 300
+        });
+      }
+
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+
+        p.x += p.vx + (Math.sin(p.y * 0.02) * 0.5);
+        p.y += p.vy;
+        p.life -= 0.008;
+
+        const freqIdx = Math.floor((p.x / w) * frequencyData.length);
+        const freqVal = frequencyData[freqIdx] / 255;
+        const sizeBoost = freqVal * vol * 3;
+
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size + sizeBoost, 0, Math.PI * 2);
+        ctx.fillStyle = `hsla(${p.hue}, 100%, 65%, ${p.life * vol})`;
+        ctx.shadowColor = `hsla(${p.hue}, 100%, 50%, 0.8)`;
+        ctx.shadowBlur = 15 * vol;
+        ctx.fill();
+
+        if (p.life <= 0 || p.y > h + 20) {
+          particles.splice(i, 1);
+        }
+      }
+
+      ctx.shadowBlur = 0;
+    }
+
+    function visualize() {
+      if (!isPlaying) return;
+
+      analyser.getByteFrequencyData(frequencyData);
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      switch (currentStyle) {
+        case 'ring':
+          drawRing();
+          break;
+        case 'wave':
+          drawWave();
+          break;
+        case 'particle':
+          drawParticle();
+          break;
+      }
+
+      animationId = requestAnimationFrame(visualize);
+    }
+
+    function setStyle(style) {
+      currentStyle = style;
+      btnRing.classList.toggle('active', style === 'ring');
+      btnWave.classList.toggle('active', style === 'wave');
+      btnParticle.classList.toggle('active', style === 'particle');
+    }
+
+    dropZone.addEventListener('click', () => fileInput.click());
+
+    dropZone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropZone.classList.add('active');
+    });
+
+    dropZone.addEventListener('dragleave', () => {
+      dropZone.classList.remove('active');
+    });
+
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropZone.classList.remove('active');
+      const file = e.dataTransfer.files[0];
+      if (file && file.type.startsWith('audio/')) {
+        loadAudio(file);
+      }
+    });
+
+    fileInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        loadAudio(file);
+      }
+    });
+
+    btnPlay.addEventListener('click', togglePlay);
+    btnRing.addEventListener('click', () => setStyle('ring'));
+    btnWave.addEventListener('click', () => setStyle('wave'));
+    btnParticle.addEventListener('click', () => setStyle('particle'));
+
+    volumeSlider.addEventListener('input', (e) => {
+      volume = parseFloat(e.target.value);
+      if (audio) audio.volume = volume;
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.code === 'Space' && audio) {
+        e.preventDefault();
+        togglePlay();
+      }
+    });
+  </script>
+</body>
+</html>
