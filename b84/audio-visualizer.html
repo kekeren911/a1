@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Audio Visualizer</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #0a0a0f;
+    color: #e0e0e0;
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    overflow: hidden;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  #canvas {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    z-index: 0;
+  }
+
+  .controls {
+    position: fixed;
+    bottom: 0;
+    left: 0; right: 0;
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 24px 28px;
+    background: linear-gradient(transparent, rgba(0,0,0,0.85) 30%);
+    pointer-events: none;
+  }
+  .controls > * { pointer-events: auto; }
+
+  /* Upload area */
+  .upload-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .upload-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 22px;
+    border: 1.5px dashed #555;
+    border-radius: 10px;
+    background: rgba(255,255,255,0.04);
+    color: #bbb;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all .2s;
+  }
+  .upload-btn:hover {
+    border-color: #7c6ef0;
+    color: #d0ccff;
+    background: rgba(124,110,240,0.08);
+  }
+  .upload-btn input { display: none; }
+  .track-name {
+    font-size: 13px;
+    color: #999;
+    max-width: 260px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* Mode switcher */
+  .mode-bar {
+    display: flex;
+    gap: 4px;
+    background: rgba(255,255,255,0.06);
+    border-radius: 10px;
+    padding: 4px;
+  }
+  .mode-btn {
+    padding: 7px 18px;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    color: #888;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all .25s;
+  }
+  .mode-btn.active {
+    background: rgba(124,110,240,0.35);
+    color: #fff;
+    box-shadow: 0 0 14px rgba(124,110,240,0.25);
+  }
+  .mode-btn:hover:not(.active) { color: #ccc; }
+
+  /* Progress bar */
+  .progress-wrap {
+    width: 100%;
+    max-width: 520px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    opacity: 0;
+    transition: opacity .3s;
+  }
+  .progress-wrap.visible { opacity: 1; }
+  .time { font-size: 11px; color: #666; min-width: 38px; text-align: center; }
+  .progress-track {
+    flex: 1;
+    height: 4px;
+    background: rgba(255,255,255,0.08);
+    border-radius: 2px;
+    cursor: pointer;
+    position: relative;
+  }
+  .progress-fill {
+    height: 100%;
+    background: #7c6ef0;
+    border-radius: 2px;
+    width: 0%;
+    transition: width .1s linear;
+  }
+
+  /* Center prompt */
+  .idle-msg {
+    position: fixed;
+    top: 45%; left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    z-index: 5;
+    pointer-events: none;
+    transition: opacity .5s;
+  }
+  .idle-msg.hidden { opacity: 0; }
+  .idle-msg h2 { font-size: 20px; font-weight: 400; color: #555; letter-spacing: 1px; }
+  .idle-msg p { font-size: 13px; color: #444; margin-top: 6px; }
+</style>
+</head>
+<body>
+
+<canvas id="canvas"></canvas>
+
+<div class="idle-msg" id="idleMsg">
+  <h2>Upload audio to begin</h2>
+  <p>Supports MP3 / WAV / OGG / FLAC</p>
+</div>
+
+<div class="controls">
+  <div class="progress-wrap" id="progressWrap">
+    <span class="time" id="curTime">0:00</span>
+    <div class="progress-track" id="progressTrack">
+      <div class="progress-fill" id="progressFill"></div>
+    </div>
+    <span class="time" id="durTime">0:00</span>
+  </div>
+  <div class="upload-row">
+    <label class="upload-btn" id="uploadBtn">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      Upload
+      <input type="file" id="fileInput" accept="audio/*">
+    </label>
+    <span class="track-name" id="trackName"></span>
+  </div>
+  <div class="mode-bar">
+    <button class="mode-btn active" data-mode="ring">Ring</button>
+    <button class="mode-btn" data-mode="wave">Wave</button>
+    <button class="mode-btn" data-mode="particles">Particles</button>
+  </div>
+</div>
+
+<script>
+// ── State ──
+let audioCtx, analyser, source, gainNode;
+let audioEl = null;
+let freqData, timeData;
+let mode = 'ring';
+let animId;
+let particles = [];
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const $ = id => document.getElementById(id);
+
+// ── Resize ──
+function resize() {
+  canvas.width = window.innerWidth * devicePixelRatio;
+  canvas.height = window.innerHeight * devicePixelRatio;
+  ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+}
+window.addEventListener('resize', resize);
+resize();
+
+// ── Mode buttons ──
+document.querySelectorAll('.mode-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelector('.mode-btn.active').classList.remove('active');
+    btn.classList.add('active');
+    mode = btn.dataset.mode;
+    if (mode === 'particles') initParticles();
+  });
+});
+
+// ── File upload ──
+$('fileInput').addEventListener('change', e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  $('trackName').textContent = file.name;
+  $('idleMsg').classList.add('hidden');
+  $('progressWrap').classList.add('visible');
+
+  if (audioEl) { audioEl.pause(); URL.revokeObjectURL(audioEl.src); }
+  if (source) { try { source.disconnect(); } catch(_){} }
+
+  audioEl = new Audio();
+  audioEl.crossOrigin = 'anonymous';
+  audioEl.src = URL.createObjectURL(file);
+
+  if (!audioCtx) {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 2048;
+    analyser.smoothingTimeConstant = 0.82;
+    gainNode = audioCtx.createGain();
+    gainNode.connect(audioCtx.destination);
+    analyser.connect(gainNode);
+    freqData = new Uint8Array(analyser.frequencyBinCount);
+    timeData = new Uint8Array(analyser.fftSize);
+  }
+
+  source = audioCtx.createMediaElementSource(audioEl);
+  source.connect(analyser);
+
+  audioEl.addEventListener('loadedmetadata', () => {
+    $('durTime').textContent = fmtTime(audioEl.duration);
+  });
+  audioEl.play();
+  if (!animId) loop();
+});
+
+// ── Progress ──
+$('progressTrack').addEventListener('click', e => {
+  if (!audioEl || !audioEl.duration) return;
+  const rect = $('progressTrack').getBoundingClientRect();
+  const ratio = (e.clientX - rect.left) / rect.width;
+  audioEl.currentTime = ratio * audioEl.duration;
+});
+
+function fmtTime(s) {
+  if (!s || !isFinite(s)) return '0:00';
+  const m = Math.floor(s / 60);
+  const sec = Math.floor(s % 60);
+  return m + ':' + String(sec).padStart(2, '0');
+}
+
+// ── Particles init ──
+function initParticles() {
+  particles = [];
+  for (let i = 0; i < 300; i++) {
+    particles.push(makeParticle());
+  }
+}
+function makeParticle() {
+  const w = window.innerWidth, h = window.innerHeight;
+  return {
+    x: Math.random() * w,
+    y: Math.random() * -h,
+    speed: 1 + Math.random() * 3,
+    size: 1 + Math.random() * 2.5,
+    band: Math.floor(Math.random() * 128),
+  };
+}
+initParticles();
+
+// ── Helpers ──
+function getVolume() {
+  let sum = 0;
+  for (let i = 0; i < freqData.length; i++) sum += freqData[i];
+  return sum / freqData.length / 255;
+}
+
+function hsl(h, s, l, a) {
+  return `hsla(${h},${s}%,${l}%,${a || 1})`;
+}
+
+// ── Main loop ──
+function loop() {
+  animId = requestAnimationFrame(loop);
+  const W = window.innerWidth, H = window.innerHeight;
+  ctx.clearRect(0, 0, W, H);
+
+  if (analyser) {
+    analyser.getByteFrequencyData(freqData);
+    analyser.getByteTimeDomainData(timeData);
+  }
+
+  const vol = analyser ? getVolume() : 0;
+  const bri = 45 + vol * 55; // 45-100
+
+  // Background tint
+  ctx.fillStyle = `rgba(6,5,18,${0.88})`;
+  ctx.fillRect(0, 0, W, H);
+
+  if (mode === 'ring') drawRing(W, H, vol, bri);
+  else if (mode === 'wave') drawWave(W, H, vol, bri);
+  else drawParticles(W, H, vol, bri);
+
+  // Progress
+  if (audioEl && audioEl.duration) {
+    $('progressFill').style.width = (audioEl.currentTime / audioEl.duration * 100) + '%';
+    $('curTime').textContent = fmtTime(audioEl.currentTime);
+  }
+}
+
+// ── Ring ──
+function drawRing(W, H, vol, bri) {
+  const cx = W / 2, cy = H / 2;
+  const baseR = Math.min(W, H) * 0.18;
+  const len = 180;
+
+  // Glow behind
+  const grd = ctx.createRadialGradient(cx, cy, baseR * 0.5, cx, cy, baseR * 2.5);
+  grd.addColorStop(0, hsl(255, 60, bri * 0.25, 0.35));
+  grd.addColorStop(1, 'transparent');
+  ctx.fillStyle = grd;
+  ctx.fillRect(0, 0, W, H);
+
+  for (let i = 0; i < len; i++) {
+    const angle = (i / len) * Math.PI * 2 - Math.PI / 2;
+    const idx = Math.floor(i / len * freqData.length * 0.6);
+    const val = freqData[idx] / 255;
+    const barH = val * baseR * 1.1 + 2;
+
+    const inner = baseR + 4;
+    const outer = inner + barH;
+
+    const x1 = cx + Math.cos(angle) * inner;
+    const y1 = cy + Math.sin(angle) * inner;
+    const x2 = cx + Math.cos(angle) * outer;
+    const y2 = cy + Math.sin(angle) * outer;
+
+    const hue = (i / len) * 280 + vol * 40;
+    ctx.strokeStyle = hsl(hue, 75 + val * 25, bri * (0.5 + val * 0.5), 0.7 + val * 0.3);
+    ctx.lineWidth = Math.max(1.5, (Math.PI * 2 * inner) / len * 0.6);
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.stroke();
+  }
+
+  // Inner circle waveform
+  ctx.beginPath();
+  for (let i = 0; i < 360; i++) {
+    const angle = (i / 360) * Math.PI * 2;
+    const idx = Math.floor(i / 360 * timeData.length);
+    const val = (timeData[idx] - 128) / 128;
+    const r = baseR + val * baseR * 0.3;
+    const x = cx + Math.cos(angle) * r;
+    const y = cy + Math.sin(angle) * r;
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  }
+  ctx.closePath();
+  ctx.strokeStyle = hsl(220, 80, bri, 0.6);
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+}
+
+// ── Wave ──
+function drawWave(W, H, vol, bri) {
+  const layers = 4;
+  for (let l = 0; l < layers; l++) {
+    const offset = l * 0.12;
+    const hue = 240 + l * 35 + vol * 30;
+    const alpha = 0.35 - l * 0.06;
+
+    ctx.beginPath();
+    const sliceW = W / (freqData.length * 0.5);
+    for (let i = 0; i < freqData.length * 0.5; i++) {
+      const val = freqData[i] / 255;
+      const y = H * 0.5 + (val - 0.3 + offset) * H * 0.35 * (1 - l * 0.15);
+      const x = i * sliceW;
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    }
+    ctx.strokeStyle = hsl(hue, 70, bri, alpha);
+    ctx.lineWidth = 2.5 - l * 0.4;
+    ctx.stroke();
+
+    // Fill under
+    ctx.lineTo(W, H);
+    ctx.lineTo(0, H);
+    ctx.closePath();
+    ctx.fillStyle = hsl(hue, 60, bri * 0.5, alpha * 0.25);
+    ctx.fill();
+  }
+
+  // Center line waveform
+  ctx.beginPath();
+  const step = W / timeData.length;
+  for (let i = 0; i < timeData.length; i++) {
+    const val = (timeData[i] - 128) / 128;
+    const y = H / 2 + val * H * 0.18;
+    i === 0 ? ctx.moveTo(0, y) : ctx.lineTo(i * step, y);
+  }
+  ctx.strokeStyle = hsl(300, 80, bri, 0.5);
+  ctx.lineWidth = 1.2;
+  ctx.stroke();
+
+  // Bars at bottom
+  const barCount = 128;
+  const barW = W / barCount;
+  for (let i = 0; i < barCount; i++) {
+    const val = freqData[i * 2] / 255;
+    const h = val * H * 0.2;
+    const hue = (i / barCount) * 260 + vol * 50;
+    ctx.fillStyle = hsl(hue, 70, bri * (0.3 + val * 0.7), 0.45 + val * 0.4);
+    ctx.fillRect(i * barW, H - h, barW - 1, h);
+  }
+}
+
+// ── Particles ──
+function drawParticles(W, H, vol, bri) {
+  // Ensure enough particles
+  while (particles.length < 300) particles.push(makeParticle());
+
+  for (let i = 0; i < particles.length; i++) {
+    const p = particles[i];
+    const val = freqData[p.band] / 255;
+    p.y += p.speed * (1 + val * 4);
+
+    // Sway
+    p.x += Math.sin(p.y * 0.005 + p.band) * (0.5 + val * 1.5);
+
+    if (p.y > H + 10) {
+      p.y = -10;
+      p.x = Math.random() * W;
+    }
+
+    const hue = (p.band / 128) * 280 + vol * 40;
+    const light = bri * (0.3 + val * 0.7);
+    const size = p.size * (1 + val * 2.5);
+    const alpha = 0.3 + val * 0.7;
+
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, size, 0, Math.PI * 2);
+    ctx.fillStyle = hsl(hue, 80, light, alpha);
+    ctx.fill();
+
+    // Trail
+    if (val > 0.4) {
+      ctx.beginPath();
+      ctx.arc(p.x, p.y - p.speed * 3, size * 0.6, 0, Math.PI * 2);
+      ctx.fillStyle = hsl(hue, 70, light * 0.7, alpha * 0.4);
+      ctx.fill();
+    }
+  }
+
+  // Horizontal energy bands
+  for (let b = 0; b < 8; b++) {
+    const bandStart = Math.floor(b / 8 * freqData.length * 0.5);
+    let sum = 0;
+    for (let j = bandStart; j < bandStart + 32; j++) sum += freqData[j];
+    const avg = sum / 32 / 255;
+
+    const y = H - (b + 1) * (H / 10) - 20;
+    const hue = b * 40 + vol * 30;
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.bezierCurveTo(W * 0.25, y - avg * 40, W * 0.75, y + avg * 40, W, y);
+    ctx.strokeStyle = hsl(hue, 70, bri * (0.2 + avg * 0.6), 0.15 + avg * 0.25);
+    ctx.lineWidth = 1 + avg * 3;
+    ctx.stroke();
+  }
+}
+
+// ── Idle animation (no audio) ──
+function idleLoop() {
+  if (audioEl && !audioEl.paused) return;
+  const W = window.innerWidth, H = window.innerHeight;
+  ctx.fillStyle = 'rgba(6,5,18,0.15)';
+  ctx.fillRect(0, 0, W, H);
+
+  const t = performance.now() * 0.001;
+  for (let i = 0; i < 60; i++) {
+    const angle = (i / 60) * Math.PI * 2 + t * 0.3;
+    const r = 80 + Math.sin(t * 0.5 + i * 0.2) * 20;
+    const x = W / 2 + Math.cos(angle) * r;
+    const y = H / 2 + Math.sin(angle) * r;
+    ctx.beginPath();
+    ctx.arc(x, y, 1.5, 0, Math.PI * 2);
+    ctx.fillStyle = hsl(250, 50, 35, 0.4);
+    ctx.fill();
+  }
+}
+setInterval(idleLoop, 50);
+</script>
+</body>
+</html>
